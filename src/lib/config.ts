@@ -2,7 +2,7 @@
 export const site = {
   name: "Pick a Peach",
   shortName: "Peach",
-  url: (process.env.NEXT_PUBLIC_SITE_URL || "https://pickapeach.com").replace(/\/$/, ""),
+  url: (process.env.NEXT_PUBLIC_SITE_URL || "https://www.pickapeach.com").replace(/\/$/, ""),
   tagline: "Hand-picked creators, free to follow",
   description:
     "Pick a Peach is a hand-picked directory of independent creators. Browse photos and short clips, find your favorites, and follow them free on their own pages.",

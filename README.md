@@ -72,7 +72,7 @@ Every visit stores the traffic source on the session (UTM tags, ad click IDs, re
 Tag every ad link. Traffic Junky example (their macros fill in the braces):
 
 ```
-https://pickapeach.com/?utm_source=trafficjunky&utm_medium=cpm&utm_campaign={CampaignID}&utm_content={SpotID}&utm_term={SiteID}
+https://www.pickapeach.com/?utm_source=trafficjunky&utm_medium=cpm&utm_campaign={CampaignID}&utm_content={SpotID}&utm_term={SiteID}
 ```
 
 Any extra query params are kept too, so you can add `sub1`, `zone_id`, etc.
@@ -109,13 +109,17 @@ Each owner signs in with their own email and password. In **Account** you can ch
 update private.admin_users set password_hash = extensions.crypt('new-password-here', extensions.gen_salt('bf', 12)) where lower(email) = 'owner@example.com';
 ```
 
+## Domain
+
+`www.pickapeach.com` is the main address (Cloudflare Pages custom domain, CNAME `www` → `pickapeach.pages.dev` at GoDaddy). The bare `pickapeach.com` is forwarded at GoDaddy to `https://www.pickapeach.com` (301, no masking). Canonical tags, the sitemap, robots.txt and llms.txt all use the www address.
+
 ## Deploy
 
 Cloudflare Pages project `pickapeach` is connected to this repo: every push to `main` builds (`npm run build`, output `out`) and deploys. Bindings (R2 `MEDIA`) and vars come from `wrangler.jsonc`.
 
 Manual deploy: `npm run deploy` (build + `wrangler pages deploy`).
 
-Env (build time, optional): `NEXT_PUBLIC_SITE_URL` (canonical domain, default https://pickapeach.com), `NEXT_PUBLIC_GA_ID`, `NEXT_PUBLIC_PIXEL_FOLLOW`, `NEXT_PUBLIC_PIXEL_LEAD`, `NEXT_PUBLIC_NOINDEX=1`.
+Env (build time, optional): `NEXT_PUBLIC_SITE_URL` (canonical domain, default https://www.pickapeach.com), `NEXT_PUBLIC_GA_ID`, `NEXT_PUBLIC_PIXEL_FOLLOW`, `NEXT_PUBLIC_PIXEL_LEAD`, `NEXT_PUBLIC_NOINDEX=1`.
 Worker secrets: `SUPABASE_KEY` (secret key, see Security), `LEAD_WEBHOOK_URL`, `ALERT_WEBHOOK_URL`. Build vars: `NEXT_PUBLIC_LEGAL_ENTITY`, `NEXT_PUBLIC_LEGAL_ADDRESS`, `NEXT_PUBLIC_PRIVACY_EMAIL`, `NEXT_PUBLIC_DMCA_EMAIL`.
 
 ## Local
