@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+<defs>
+<radialGradient id="g1" cx="74%" cy="77%" r="70%"><stop offset="0" stop-color="#FF7A66" stop-opacity=".95"/><stop offset="1" stop-color="#FF7A66" stop-opacity="0"/></radialGradient>
+<radialGradient id="g2" cx="28%" cy="26%" r="65%"><stop offset="0" stop-color="#EADFC8" stop-opacity=".75"/><stop offset="1" stop-color="#EADFC8" stop-opacity="0"/></radialGradient>
+<radialGradient id="g3" cx="72%" cy="51.5%" r="55%"><stop offset="0" stop-color="#3B5BDB" stop-opacity=".35"/><stop offset="1" stop-color="#3B5BDB" stop-opacity="0"/></radialGradient>
+<filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .06 0"/></filter>
+</defs>
+<rect width="1080" height="1350" fill="#09122A"/>
+<rect width="1080" height="1350" fill="url(#g1)"/>
+<rect width="1080" height="1350" fill="url(#g2)"/>
+<rect width="1080" height="1350" fill="url(#g3)"/>
+<rect width="1080" height="1350" filter="url(#n)"/>
+<text x="540" y="760" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="340" font-weight="700" fill="#EADFC8" fill-opacity=".18" letter-spacing="-12">P</text>
+</svg>

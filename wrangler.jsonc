@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pickapeach",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./out",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash",
+    "run_worker_first": ["/api/*", "/go/*"]
+  },
+  "observability": { "enabled": true },
+  "vars": {
+    "SUPABASE_URL": "https://qcuzrmceswanetrmimzn.supabase.co",
+    // Supabase publishable key. Safe to ship: every table is RLS-locked and the
+    // Worker can only call the purpose-built functions in supabase/migrations.
+    "SUPABASE_KEY": "sb_publishable_zG7RWc6SzzTIVBRMPXSJ0w_K0tLxwfD"
+  }
+  // Optional secrets (set in the Cloudflare dashboard or `wrangler secret put`):
+  //   IP_SALT           any random string, used to hash visitor IPs
+  //   LEAD_WEBHOOK_URL  GoHighLevel / Zapier webhook that gets every new lead
+}
