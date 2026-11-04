@@ -12,7 +12,7 @@ import { Arrow, ChevronLeft, ChevronRight, Clips as ClipsIcon, Close, Play, Shar
 
 type Lite = Pick<Creator, "slug" | "name" | "free" | "tagline">;
 
-export function ProfileBody({ c, related, regionHref }: { c: Creator; related: CardData[]; regionHref?: string }) {
+export function ProfileBody({ c, related, regionHref, preview }: { c: Creator; related: CardData[]; regionHref?: string; preview?: boolean }) {
   const links = socialLinks(c);
   const lite: Lite = { slug: c.slug, name: c.name, free: c.free, tagline: c.tagline };
   const details: [string, string | undefined, string | undefined][] = [
@@ -26,7 +26,7 @@ export function ProfileBody({ c, related, regionHref }: { c: Creator; related: C
 
   return (
     <>
-      <ProfileView slug={c.slug} locked={!!c.locked} />
+      {!preview && <ProfileView slug={c.slug} locked={!!c.locked} />}
       <div className="wrap">
         <article className="profile">
           <Gallery photos={c.photos} name={c.name} />
@@ -48,7 +48,7 @@ export function ProfileBody({ c, related, regionHref }: { c: Creator; related: C
               </div>
               {c.tagline && <p className="p-tagline">{c.tagline}</p>}
               <div className="p-cta" id="main-cta">
-                <FollowButton c={lite} where="profile" className="btn btn-primary" />
+                <FollowButton c={lite} where="profile" className="btn btn-primary" preview={preview} />
                 {c.clips.length > 0 && (
                   <Link
                     href={`/clips?c=${c.slug}`}
@@ -153,7 +153,7 @@ export function ProfileBody({ c, related, regionHref }: { c: Creator; related: C
           </section>
         )}
       </div>
-      <StickyCta c={lite} avatar={c.photos[0]?.src || ""} sentinelId="main-cta" />
+      {!preview && <StickyCta c={lite} avatar={c.photos[0]?.src || ""} sentinelId="main-cta" />}
     </>
   );
 }
@@ -238,10 +238,11 @@ export function ShareButton({ name, className = "icon-btn gray", style }: { name
   );
 }
 
-export function FollowButton({ c, where, className = "btn btn-primary", children }: { c: Pick<Creator, "slug" | "name" | "free">; where: string; className?: string; children?: React.ReactNode }) {
+export function FollowButton({ c, where, className = "btn btn-primary", children, preview }: { c: Pick<Creator, "slug" | "name" | "free">; where: string; className?: string; children?: React.ReactNode; preview?: boolean }) {
   return (
     <a
-      href={`/go/${c.slug}?s=${where}`}
+      onClick={preview ? (e) => e.preventDefault() : undefined}
+      href={preview ? "#" : `/go/${c.slug}?s=${where}`}
       className={className}
       target="_blank"
       rel="nofollow noopener sponsored"

@@ -11,3 +11,4 @@ next-env.d.ts
 tsconfig.tsbuildinfo
 AGENTS.md
 data/locked.local.json
+data/self-serve.json

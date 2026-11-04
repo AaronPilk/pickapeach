@@ -38,7 +38,7 @@ const alias = {
 };
 const cols = header.map((h) => alias[h] || h);
 
-const RESERVED = new Set(["clips", "browse", "from", "new", "trending", "faq", "about", "privacy", "terms", "admin", "vip", "apply", "api", "go", "media", "llms", "sitemap", "robots", "more", "members", "blog"]);
+const RESERVED = new Set(["clips", "browse", "from", "new", "trending", "faq", "about", "privacy", "terms", "admin", "vip", "apply", "api", "go", "media", "llms", "sitemap", "robots", "more", "members", "blog", "creator", "m"]);
 const STATES = {
   AL: "alabama", AK: "alaska", AZ: "arizona", AR: "arkansas", CA: "california", CO: "colorado", CT: "connecticut", DE: "delaware",
   FL: "florida", GA: "georgia", HI: "hawaii", ID: "idaho", IL: "illinois", IN: "indiana", IA: "iowa", KS: "kansas", KY: "kentucky",

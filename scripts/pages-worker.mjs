@@ -15,7 +15,7 @@ await build({
   minify: true,
   legalComments: "none",
 });
-writeFileSync(`${root}out/_routes.json`, JSON.stringify({ version: 1, include: ["/api/*", "/go/*"], exclude: [] }, null, 2));
+writeFileSync(`${root}out/_routes.json`, JSON.stringify({ version: 1, include: ["/api/*", "/go/*", "/m/*"], exclude: [] }, null, 2));
 // Workers static assets: don't publish the worker bundle or the Pages routes file.
 writeFileSync(`${root}out/.assetsignore`, "_worker.js\n_routes.json\n");
 console.log("pages worker bundled");

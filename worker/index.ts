@@ -6,11 +6,16 @@
 //   POST /api/lead           VIP unlock + creator applications -> Supabase submit_lead()
 //   GET  /api/vip            members-only creators (cookie-gated)
 //   GET  /api/vip/summary    public count of members-only creators
-//   /api/admin/*             password-protected dashboard data
+//   /api/admin/*             password-protected dashboard data + creator approvals
+//   /api/creator/*           Creator Studio: accounts, profile drafts, photo/video uploads
+//   GET  /m/*                uploaded media from R2 (supports Range for iOS video)
 import roster from "../data/creators.json";
+import selfServe from "../data/self-serve.json";
+import { mergeRoster } from "../src/lib/roster";
 
 interface Env {
   ASSETS: Fetcher;
+  MEDIA?: R2Bucket;
   SUPABASE_URL?: string;
   SUPABASE_KEY?: string;
   IP_SALT?: string;
@@ -18,7 +23,15 @@ interface Env {
 }
 
 type Json = Record<string, unknown>;
-const fans = new Map((roster as { slug: string; fansUrl: string }[]).map((c) => [c.slug, c.fansUrl]));
+// Agency links are baked in. Self-serve links are always looked up live, so a takedown
+// stops the redirect right away; `alias` maps a renamed slug ("skye-2") back to her DB slug.
+type RosterRow = { slug: string; fansUrl: string; age?: number; dbSlug?: string };
+const fans = new Map((roster as RosterRow[]).map((c) => [c.slug, c.fansUrl]));
+const alias = new Map(
+  mergeRoster(roster as RosterRow[], (selfServe as RosterRow[]).map((c) => ({ ...c, dbSlug: c.slug })))
+    .filter((c) => c.dbSlug && c.dbSlug !== c.slug)
+    .map((c) => [c.slug, c.dbSlug as string]),
+);
 
 const CONSENT_TEXT =
   "I agree to get emails and texts from Pick a Peach about new creators and drops. Message frequency varies. Msg & data rates may apply. Reply STOP to cancel, HELP for help.";
@@ -33,6 +46,8 @@ export default {
       if (p === "/api/lead" && req.method === "POST") return await handleLead(req, env, ctx);
       if (p === "/api/vip/summary") return await handleSummary(req, env, ctx);
       if (p === "/api/live") return await handleLive(req, env, ctx);
+      if (p.startsWith("/m/")) return await serveMedia(req, env, url);
+      if (p.startsWith("/api/creator/")) return await handleCreator(req, env, url);
       if (p === "/api/vip") return await handleVip(req, env);
       if (p.startsWith("/api/admin/")) return await handleAdmin(req, env, url);
       if (p.startsWith("/api/")) return json({ error: "not found" }, 404);
@@ -89,7 +104,7 @@ function cleanEvent(e: Json) {
 async function handleGo(req: Request, env: Env, ctx: ExecutionContext, url: URL) {
   const slug = decodeURIComponent(url.pathname.slice(4)).replace(/\/$/, "");
   let target = fans.get(slug);
-  if (!target) target = ((await rpc(env, "vip_fans_url", { p_slug: slug })) as string | null) || undefined;
+  if (!target) target = ((await rpc(env, "vip_fans_url", { p_slug: alias.get(slug) || slug })) as string | null) || undefined;
   if (!target || !/^https?:\/\//.test(target)) return Response.redirect(url.origin + "/", 302);
 
   const cookies = parseCookies(req);
@@ -235,6 +250,29 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
   if (!tok || !/^[0-9a-f-]{36}$/i.test(tok)) return json({ error: "auth" }, 401);
   const nostore = { "cache-control": "no-store" };
 
+  if (p === "creators") {
+    const data = await rpc(env, "admin_creators", { p_token: tok });
+    return data ? json(data, 200, nostore) : json({ error: "auth" }, 401);
+  }
+  if (p === "creators/review" && req.method === "POST") {
+    const b = (await req.json().catch(() => ({}))) as Json;
+    const action = str(b.action, 20);
+    let res: unknown;
+    try {
+      res = await rpc(env, "admin_creator_review", { p_token: tok, p_account: str(b.id, 64), p_action: action, p_tier: str(b.tier, 10) || null, p_note: str(b.note, 1000) || null });
+    } catch (e) {
+      return json({ error: rpcMessage(e) }, 422, nostore);
+    }
+    // Public pages are static: rebuild the site so approvals and takedowns go live.
+    let rebuilding = false;
+    if (["approve", "reject", "unpublish", "tier"].includes(action)) {
+      const hook = (await rpc(env, "admin_deploy_hook", { p_token: tok }).catch(() => null)) as string | null;
+      if (hook && /^https:\/\/api\.cloudflare\.com\//.test(hook)) {
+        rebuilding = (await fetch(hook, { method: "POST" }).catch(() => null))?.ok ?? false;
+      }
+    }
+    return json({ ok: true, result: res, rebuilding }, 200, nostore);
+  }
   if (p === "stats") {
     const days = Math.max(1, Math.min(365, Number(url.searchParams.get("days")) || 7));
     const data = await rpc(env, "admin_stats", { p_token: tok, p_days: days });
@@ -259,6 +297,139 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
     });
   }
   return json({ error: "not found" }, 404);
+}
+
+// ---------------------------------------------------------------- Creator Studio
+
+const PHOTO_MAX = 6 * 1024 * 1024;
+const CLIP_MAX = 50 * 1024 * 1024;
+
+async function handleCreator(req: Request, env: Env, url: URL) {
+  const p = url.pathname.replace("/api/creator/", "");
+  const nostore = { "cache-control": "no-store" };
+  const cookie = (tok: string, age: number) => `pp_creator=${tok}; Path=/; Max-Age=${age}; HttpOnly; Secure; SameSite=Lax`;
+
+  if ((p === "signup" || p === "login") && req.method === "POST") {
+    const b = (await req.json().catch(() => ({}))) as Json;
+    let tok: string | null = null;
+    try {
+      tok = (await rpc(env, p === "signup" ? "creator_signup" : "creator_login", { p_email: str(b.email, 200), p_password: typeof b.password === "string" ? b.password.slice(0, 200) : "" })) as string | null;
+    } catch (e) {
+      return json({ error: rpcMessage(e) }, 422, nostore);
+    }
+    if (!tok) return json({ error: "Wrong email or password. After 8 misses you'll need to wait 15 minutes." }, 401, nostore);
+    const me = await rpc(env, "creator_me", { p_token: tok });
+    return json(me, 200, { ...nostore, "set-cookie": cookie(tok, 2592000) });
+  }
+
+  const tok = parseCookies(req).pp_creator;
+  if (p === "logout") {
+    if (tok && /^[0-9a-f-]{36}$/i.test(tok)) await rpc(env, "creator_logout", { p_token: tok }).catch(() => {});
+    return json({ ok: true }, 200, { ...nostore, "set-cookie": cookie("", 0) });
+  }
+  if (!tok || !/^[0-9a-f-]{36}$/i.test(tok)) return json({ error: "auth" }, 401, nostore);
+
+  if (p === "me") {
+    const me = await rpc(env, "creator_me", { p_token: tok });
+    return me ? json(me, 200, nostore) : json({ error: "auth" }, 401, nostore);
+  }
+
+  if (p === "save" && req.method === "POST") {
+    if (Number(req.headers.get("content-length") || 0) > 64_000) return json({ error: "Too much data." }, 413, nostore);
+    const b = (await req.json().catch(() => ({}))) as Json;
+    try {
+      const me = await rpc(env, "creator_save", { p_token: tok, p_data: b.data || {}, p_attest: b.attest || null, p_submit: b.submit === true });
+      return json(me, 200, nostore);
+    } catch (e) {
+      return json({ error: rpcMessage(e) }, 422, nostore);
+    }
+  }
+
+  if (p === "media" && req.method === "POST") {
+    if (!env.MEDIA) return json({ error: "Uploads aren't set up yet." }, 503, nostore);
+    const me = (await rpc(env, "creator_me", { p_token: tok })) as { account: { id: string } } | null;
+    if (!me) return json({ error: "auth" }, 401, nostore);
+    const kind = url.searchParams.get("kind");
+    const declared = Number(req.headers.get("content-length") || 0);
+    const max = kind === "clip" ? CLIP_MAX : PHOTO_MAX;
+    if (declared > max) return json({ error: kind === "clip" ? "Clips can be up to 50 MB." : "That image is too big." }, 413, nostore);
+    const buf = new Uint8Array(await req.arrayBuffer());
+    if (!buf.length || buf.length > max) return json({ error: "That file is too big or empty." }, 413, nostore);
+    const type = sniff(buf);
+    const okTypes = kind === "clip" ? ["video/mp4", "video/quicktime", "video/webm"] : ["image/jpeg", "image/png", "image/webp"];
+    if (!type || !okTypes.includes(type)) return json({ error: kind === "clip" ? "Upload an MP4, MOV or WebM video." : "Upload a JPG, PNG or WebP image." }, 415, nostore);
+    if (kind === "clip" && isHevcOnly(buf)) {
+      return json({ error: "This video uses HEVC, which won't play on Android or Chrome. Export it as H.264 MP4 (on iPhone: Settings → Camera → Formats → Most Compatible)." }, 415, nostore);
+    }
+    // iPhone exports H.264 inside a .mov container. Serve those as MP4 so Chrome and Android play them too.
+    const finalType = type === "video/quicktime" && hasBytes(buf, "avc1") ? "video/mp4" : type;
+    const ext = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm" }[finalType];
+    const key = `c/${me.account.id}/${crypto.randomUUID()}.${ext}`;
+    await env.MEDIA.put(key, buf, { httpMetadata: { contentType: finalType, cacheControl: "public, max-age=31536000, immutable" } });
+    return json({ ok: true, src: `/m/${key}`, type: finalType, bytes: buf.length }, 200, nostore);
+  }
+
+  return json({ error: "not found" }, 404, nostore);
+}
+
+// Identify the real file type from its first bytes (never trust the client's label).
+function sniff(b: Uint8Array): string | null {
+  const at = (o: number, s: string) => [...s].every((ch, i) => b[o + i] === ch.charCodeAt(0));
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b[0] === 0x89 && at(1, "PNG")) return "image/png";
+  if (at(0, "RIFF") && at(8, "WEBP")) return "image/webp";
+  if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return "video/webm";
+  if (at(4, "ftyp")) return at(8, "qt  ") ? "video/quicktime" : "video/mp4";
+  return null;
+}
+
+function hasBytes(b: Uint8Array, s: string) {
+  const c = [...s].map((ch) => ch.charCodeAt(0));
+  outer: for (let i = 0; i <= b.length - c.length; i++) {
+    for (let j = 0; j < c.length; j++) if (b[i + j] !== c[j]) continue outer;
+    return true;
+  }
+  return false;
+}
+function isHevcOnly(b: Uint8Array) {
+  return (hasBytes(b, "hvc1") || hasBytes(b, "hev1")) && !hasBytes(b, "avc1");
+}
+
+async function serveMedia(req: Request, env: Env, url: URL) {
+  if (!env.MEDIA) return new Response("Not found", { status: 404 });
+  const key = decodeURIComponent(url.pathname.slice(3));
+  if (!/^c\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|mp4|mov|webm)$/.test(key)) return new Response("Not found", { status: 404 });
+  const headers = new Headers({ "cache-control": "public, max-age=31536000, immutable", "accept-ranges": "bytes", "x-content-type-options": "nosniff" });
+  if (req.method === "HEAD") {
+    const h = await env.MEDIA.head(key);
+    if (!h) return new Response(null, { status: 404 });
+    headers.set("content-type", h.httpMetadata?.contentType || "application/octet-stream");
+    headers.set("content-length", String(h.size));
+    headers.set("etag", h.httpEtag);
+    return new Response(null, { headers });
+  }
+  const range = req.headers.get("range");
+  const obj = await env.MEDIA.get(key, range ? { range: req.headers } : undefined);
+  if (!obj) return new Response("Not found", { status: 404 });
+  headers.set("content-type", obj.httpMetadata?.contentType || "application/octet-stream");
+  headers.set("etag", obj.httpEtag);
+  const body = (obj as R2ObjectBody).body;
+  if (range && obj.range) {
+    const r = obj.range as { offset?: number; length?: number; suffix?: number };
+    const start = r.suffix != null ? obj.size - r.suffix : r.offset ?? 0;
+    const len = r.suffix != null ? r.suffix : r.length ?? obj.size - start;
+    headers.set("content-range", `bytes ${start}-${start + len - 1}/${obj.size}`);
+    headers.set("content-length", String(len));
+    return new Response(body, { status: 206, headers });
+  }
+  headers.set("content-length", String(obj.size));
+  return new Response(body, { headers });
+}
+
+function rpcMessage(e: unknown) {
+  const m = e instanceof Error ? e.message : String(e);
+  const match = m.match(/"message":"([^"]+)"/);
+  return match ? match[1] : "Something went wrong. Try again.";
 }
 
 // ---------------------------------------------------------------- helpers

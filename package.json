@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/pull-approved.mjs && next dev",
     "sync:sheet": "node scripts/sync-sheet.mjs",
     "placeholders": "node scripts/make-placeholders.mjs",
-    "build": "node scripts/check-data.mjs && next build && node scripts/pages-worker.mjs",
-    "preview": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy",
+    "build": "node scripts/pull-approved.mjs && node scripts/check-data.mjs && next build && node scripts/pages-worker.mjs",
+    "preview": "npm run build && wrangler pages dev",
+    "deploy": "npm run build && wrangler pages deploy",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

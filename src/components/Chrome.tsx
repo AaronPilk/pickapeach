@@ -70,7 +70,7 @@ const NAV = [
   { href: "/blog", label: "Blog" },
 ];
 
-const PAGES = new Set(["/", "/new", "/trending", "/faq", "/about", "/privacy", "/terms", "/apply", "/vip", "/more", "/admin", "/clips", "/blog"]);
+const PAGES = new Set(["/", "/new", "/trending", "/faq", "/about", "/privacy", "/terms", "/apply", "/vip", "/more", "/admin", "/clips", "/blog", "/creator"]);
 export function isProfilePath(path: string) {
   return !PAGES.has(path) && !path.startsWith("/browse") && !path.startsWith("/from") && !path.startsWith("/blog") && path.split("/").filter(Boolean).length === 1;
 }
@@ -167,7 +167,7 @@ export function Dock() {
     return () => removeEventListener("scroll", on);
   }, []);
 
-  if (path === "/clips" || path.startsWith("/admin") || path === "/more" || isProfilePath(path)) return null;
+  if (path === "/clips" || path.startsWith("/admin") || path === "/more" || path === "/creator" || isProfilePath(path)) return null;
 
   return (
     <nav className="dock glass-thick" data-hidden={hidden} aria-label="Tabs">

@@ -49,6 +49,7 @@ export type Creator = {
   clips: Clip[];
   placeholder?: boolean;
   locked?: boolean;
+  selfServe?: boolean;
 };
 
 export type VipItem = {
