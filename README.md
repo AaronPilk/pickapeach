@@ -2,9 +2,10 @@
 
 Creator directory built for paid traffic. Mobile first, light (cream) and dark (navy) themes with a coral accent, first-party tracking on every visit, click and lead.
 
-- **Site:** Next.js static export (`out/`), served by a Cloudflare Worker (`worker/index.ts`)
-- **Data:** Supabase project `qcuzrmceswanetrmimzn` (Pick A Peach org). Tracking, leads, VIP content, dashboard.
-- **Roster:** `data/creators.json`, synced from the Google Sheet
+- **Site:** Next.js static export (`out/`) on Cloudflare Pages (project `pickapeach`), with the Worker in `worker/index.ts` bundled to `out/_worker.js` for the dynamic routes
+- **Data:** Supabase project `qcuzrmceswanetrmimzn` (Pick A Peach org). Tracking, leads, hidden girls, creator accounts, dashboard. Schema in `supabase/migrations/`.
+- **Media:** creator uploads in R2 bucket `pickapeach-media`, served from `/m/*`
+- **Roster:** `data/creators.json` (synced from the Google Sheet) + approved self-serve profiles (`data/self-serve.json`, pulled at build time)
 
 ## Adding your creators
 
@@ -30,9 +31,29 @@ Creator directory built for paid traffic. Mobile first, light (cream) and dark (
 
 The build refuses to ship if a slug clashes with a page, a fans link is missing, or an age is under 18. While any placeholder creator is still in the roster the whole site is `noindex`; it switches to indexable automatically once the real roster is in.
 
-## The gate (members-only girls)
+## Creator Studio (self-serve profiles)
 
-Agency girls are open to everyone. Every other girl is members-only: she shows up as a blurred "+N members-only girls" card and a home-page section until the visitor adds email + phone. Then she appears in the grid, on `/vip` (Members) and on her own profile at `/more?c=slug`. Her data lives in Supabase `vip_creators`, never in this public repo, so the gate can't be bypassed by viewing source.
+Creators sign up at `/creator` (linked from `/apply`) and build their own profile:
+
+- **Photos:** up to 8. Each one goes through a crop screen locked to 4:5, then is re-encoded in the browser as a 1080×1350 JPEG (this also strips GPS/EXIF data). First photo is the cover.
+- **Clips:** up to 6, MP4 or MOV (H.264), max 60 seconds and 50 MB. The browser checks length, size and that it can actually play the file, rejects HEVC-only iPhone videos with a message on how to fix it, and makes a 9:16 poster. Horizontal clips are allowed with a warning.
+- **Profile:** name, handle, birthday (must be 18+), city/state, height, hair, eyes, tagline, bio, up to 6 vibes, page link, socials, plus four required confirmations (18+, everyone shown is 18+, owns the content, not explicit).
+- Drafts save automatically. **Preview** shows the exact profile page. **Submit** sends it for review.
+
+Uploads go to the Worker, which checks the file's real type from its bytes (not the name), and stores it at `c/<account>/<random>.<ext>` in R2. The database only accepts media paths under the creator's own folder.
+
+**Approving:** `/admin` → **Approvals**. Open a profile, check the age line and her page link, look through photos and clips, pick **Public** (everyone) or **Hidden** (behind the unlock wall), then **Approve**, **Ask for changes** (with a note she sees), **Reject**, or **Take down** later. When she edits a live profile, the live version stays up until you approve the edits.
+
+Approving, rejecting, taking down or moving tier calls the Cloudflare Pages deploy hook (stored in `private.settings` as `pages_deploy_hook`), so the site rebuilds and public profiles go live in about a minute. Hidden ones show instantly. To change the hook:
+
+```sql
+insert into private.settings (key, value) values ('pages_deploy_hook', 'https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/<id>')
+on conflict (key) do update set value = excluded.value;
+```
+
+## The gate (hidden girls)
+
+Agency girls are open to everyone. Every other girl is hidden: she shows up as a blurred "+N hidden girls" card and a home-page section until the visitor adds email + phone. Then she appears in the grid, on `/vip` (Unlocked girls) and on her own profile at `/more?c=slug`. Her data lives in Supabase (`vip_creators`, or `creator_profiles` for approved hidden self-serve creators), never in this public repo, so the gate can't be bypassed by viewing source.
 
 Leads land in `leads` (email, phone, consent, traffic source, campaign, geo, which page/creator they unlocked from). Set `LEAD_WEBHOOK_URL` to push every lead to GoHighLevel/Zapier in real time.
 
@@ -68,12 +89,9 @@ select private.set_admin_password('new-password');
 
 ## Deploy
 
-```bash
-npm install
-npm run deploy        # builds + wrangler deploy
-```
+Cloudflare Pages project `pickapeach` is connected to this repo: every push to `main` builds (`npm run build`, output `out`) and deploys. Bindings (R2 `MEDIA`) and vars come from `wrangler.jsonc`.
 
-Or connect the repo in Cloudflare (Workers & Pages → Create → Import a repository) with build command `npm run build` and deploy command `npx wrangler deploy`; every push to `main` then deploys.
+Manual deploy: `npm run deploy` (build + `wrangler pages deploy`).
 
 Env (build time, optional): `NEXT_PUBLIC_SITE_URL` (canonical domain, default https://pickapeach.com), `NEXT_PUBLIC_GA_ID`, `NEXT_PUBLIC_PIXEL_FOLLOW`, `NEXT_PUBLIC_PIXEL_LEAD`, `NEXT_PUBLIC_NOINDEX=1`.
 Worker secrets (optional): `IP_SALT`, `LEAD_WEBHOOK_URL`.
@@ -81,6 +99,6 @@ Worker secrets (optional): `IP_SALT`, `LEAD_WEBHOOK_URL`.
 ## Local
 
 ```bash
-npm run preview       # build + wrangler dev on :8787 (talks to the real Supabase)
+npm run preview       # build + wrangler pages dev on :8788 (real Supabase, local R2)
 npm run placeholders  # regenerate the demo roster
 ```
