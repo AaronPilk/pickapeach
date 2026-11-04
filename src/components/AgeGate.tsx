@@ -8,8 +8,8 @@ import { track } from "@/lib/track";
 
 const KEY = "pp_age_ok";
 const BOT = /bot|crawl|spider|slurp|lighthouse|pagespeed|headless|preview/i;
-// Anyone can read the legal pages before agreeing to them.
-const OPEN = ["/terms", "/privacy", "/cookies", "/creator-terms", "/content-removal", "/18-plus", "/privacy-choices"];
+// Anyone can read the legal pages before agreeing to them. The owner dashboard and creator login have their own sign-in.
+const OPEN = ["/terms", "/privacy", "/cookies", "/creator-terms", "/content-removal", "/18-plus", "/privacy-choices", "/admin", "/creator"];
 
 export default function AgeGate() {
   const path = usePathname() || "/";
