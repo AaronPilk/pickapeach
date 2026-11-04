@@ -4,8 +4,13 @@
 // which enriches it with geo + device info and stores it in Supabase.
 // Visitor + session ids also live in cookies so server routes (/go, /api/lead)
 // can tie clicks and leads back to the traffic source.
+//
+// Consent: without analytics consent (EU/UK until they accept, or anyone who turns it off) nothing is
+// stored on the device. Events still go out, but anonymously: no visitor ID, a throwaway session ID kept
+// in memory for this tab only. Ad pixels only fire with ad consent (and never with Global Privacy Control on).
 
 import { site } from "./config";
+import { ensureRegion, getConsent, onConsent, region } from "./consent";
 
 type Meta = Record<string, string | number | boolean | null | undefined>;
 type Ev = { t: string; ts: number; p: string; c?: string; m?: Meta };
@@ -20,6 +25,10 @@ const queue: Ev[] = [];
 let ctxPending = false;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let started = false;
+// Anonymous mode (no analytics consent): nothing touches cookies or storage.
+let memSid = "";
+let memTouch: ReturnType<typeof readAttribution>["touch"] | null = null;
+const analyticsOn = () => getConsent().analytics;
 
 const KNOWN = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "fbclid", "ttclid", "msclkid", "src", "source", "ref"];
 
@@ -44,6 +53,7 @@ function store(k: string, v?: string) {
 }
 
 function visitorId() {
+  if (!analyticsOn()) return "anon";
   let v = getCookie(VID) || store(VID);
   if (!v) v = rid();
   setCookie(VID, v, 60 * 60 * 24 * 400);
@@ -52,6 +62,13 @@ function visitorId() {
 }
 
 function sessionId() {
+  if (!analyticsOn()) {
+    if (!memSid) {
+      memSid = rid();
+      ctxPending = true;
+    }
+    return memSid;
+  }
   let s = "";
   let last = 0;
   try {
@@ -103,6 +120,20 @@ function safeHost(u: string) {
 
 function buildCtx() {
   const { touch } = readAttribution();
+  const nav = navigator as Navigator & { connection?: { effectiveType?: string } };
+  const device = {
+    sw: screen.width,
+    sh: screen.height,
+    vw: innerWidth,
+    dpr: devicePixelRatio || 1,
+    lang: navigator.language,
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    net: nav.connection?.effectiveType || "",
+  };
+  if (!analyticsOn()) {
+    const t = memTouch || touch;
+    return { ft: t, lt: t, ...device };
+  }
   let ft = store(FT);
   if (!ft) {
     ft = JSON.stringify(touch);
@@ -118,31 +149,39 @@ function buildCtx() {
       sessionStorage.setItem(LT, lt);
     } catch {}
   }
-  const nav = navigator as Navigator & { connection?: { effectiveType?: string } };
-  return {
-    ft: JSON.parse(ft),
-    lt: JSON.parse(lt),
-    sw: screen.width,
-    sh: screen.height,
-    vw: innerWidth,
-    dpr: devicePixelRatio || 1,
-    lang: navigator.language,
-    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    net: nav.connection?.effectiveType || "",
-  };
+  return { ft: JSON.parse(ft), lt: JSON.parse(lt), ...device };
+}
+
+function clearStored() {
+  for (const k of [VID, SID]) document.cookie = `${k}=; Path=/; Max-Age=0`;
+  try {
+    for (const k of [VID, FT]) localStorage.removeItem(k);
+    for (const k of [SID, SID + "_t", LT]) sessionStorage.removeItem(k);
+  } catch {}
 }
 
 export function initTracking() {
   if (started || typeof window === "undefined") return;
   started = true;
+  memTouch = readAttribution().touch;
+  ensureRegion();
+  onConsent((c) => {
+    if (!c.analytics) {
+      clearStored();
+      memSid = "";
+    }
+    ctxPending = true; // next batch carries attribution under the new mode
+  });
   visitorId();
   sessionId();
   // A new campaign click mid-session starts a fresh last-touch.
   const { hasCampaign, touch } = readAttribution();
   if (hasCampaign) {
-    try {
-      sessionStorage.setItem(LT, JSON.stringify(touch));
-    } catch {}
+    if (analyticsOn()) {
+      try {
+        sessionStorage.setItem(LT, JSON.stringify(touch));
+      } catch {}
+    }
     ctxPending = true;
   }
   addEventListener("visibilitychange", () => {
@@ -162,12 +201,18 @@ export function track(type: string, data: { c?: string; m?: Meta } = {}) {
   else if (!timer) timer = setTimeout(() => flush(), 2500);
 }
 
+let regionWaits = 0;
 export function flush(final = false) {
   if (timer) {
     clearTimeout(timer);
     timer = null;
   }
   if (!queue.length) return;
+  // First visit: wait briefly for the region lookup so the first page isn't logged as a separate anonymous visit.
+  if (!final && !region().known && regionWaits++ < 8) {
+    timer = setTimeout(() => flush(), 400);
+    return;
+  }
   const body: Record<string, unknown> = { v: visitorId(), s: sessionId(), e: queue.splice(0, queue.length) };
   if (ctxPending) {
     body.ctx = buildCtx();
@@ -185,7 +230,7 @@ export function flush(final = false) {
 
 function firePixels(type: string, creator?: string) {
   const urls = (site.pixels as Record<string, string[]>)[type];
-  if (!urls?.length) return;
+  if (!urls?.length || !getConsent().ads) return;
   for (const u of urls) {
     const img = new Image();
     img.referrerPolicy = "no-referrer-when-downgrade";
@@ -195,16 +240,24 @@ function firePixels(type: string, creator?: string) {
 
 function forwardGa(type: string, data: { c?: string; m?: Meta }) {
   const w = window as unknown as { gtag?: (...a: unknown[]) => void };
-  if (!w.gtag || type === "page_view") return;
+  if (!w.gtag || type === "page_view" || !analyticsOn()) return;
   w.gtag("event", type, { creator: data.c, ...data.m });
 }
 
 // Visitor's last-touch source label, used for display + lead attribution.
 export function currentSource() {
   try {
-    const lt = JSON.parse(sessionStorage.getItem(LT) || "{}");
+    const lt = analyticsOn() ? JSON.parse(sessionStorage.getItem(LT) || "{}") : memTouch || {};
     return lt?.q?.utm_source || lt?.q?.src || lt?.ref_host || "direct";
   } catch {
     return "direct";
   }
+}
+
+// First and last touch for a lead, from storage (with consent) or from memory (without).
+export function leadAttribution() {
+  try {
+    if (analyticsOn()) return { ft: JSON.parse(localStorage.getItem(FT) || "null"), lt: JSON.parse(sessionStorage.getItem(LT) || "null") };
+  } catch {}
+  return { ft: memTouch, lt: memTouch };
 }

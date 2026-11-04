@@ -2,6 +2,7 @@ import Link from "next/link";
 import { allRegions, allTags } from "@/lib/creators";
 import { site } from "@/lib/site";
 import { Peach } from "./Icons";
+import CookieSettingsButton from "./CookieSettingsButton";
 
 export function JsonLd({ data }: { data: unknown }) {
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }} />;
@@ -49,14 +50,25 @@ export function Footer() {
               <li><Link href="/about">About</Link></li>
               <li><Link href="/faq">FAQ</Link></li>
               <li><Link href="/creator">Creators: get listed</Link></li>
-              <li><Link href="/privacy">Privacy</Link></li>
-              <li><Link href="/terms">Terms</Link></li>
+              <li><Link href="/content-removal">Report content</Link></li>
               <li><a href={`mailto:${site.contactEmail}`}>Contact</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Legal</h4>
+            <ul>
+              <li><Link href="/terms">Terms of Service</Link></li>
+              <li><Link href="/privacy">Privacy Policy</Link></li>
+              <li><Link href="/cookies">Cookie Policy</Link></li>
+              <li><Link href="/creator-terms">Creator Terms</Link></li>
+              <li><Link href="/18-plus">18+ statement</Link></li>
+              <li><Link href="/privacy-choices">Your Privacy Choices</Link></li>
+              <li><CookieSettingsButton className="footer-link-btn" /></li>
             </ul>
           </div>
         </div>
         <div className="legal">
-          © {new Date().getFullYear()} {site.name}. All creators are 18+ and listed with their permission. Pick a Peach is an independent directory and isn&apos;t affiliated with any platform it links to. To report content or request removal, email {site.contactEmail}.
+          © {new Date().getFullYear()} {site.name}. All creators are 18+ and listed with their permission. Pick a Peach is an independent directory and isn&apos;t affiliated with any platform it links to. To report content or request removal, <Link href="/content-removal">use this form</Link>.
         </div>
       </div>
     </footer>

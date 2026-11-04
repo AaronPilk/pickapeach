@@ -7,7 +7,7 @@ export const dynamic = "force-static";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const latest = creators.reduce((d, c) => (c.updatedAt > d ? c.updatedAt : d), "2026-11-04");
-  const page = (path: string, priority: number, freq: "daily" | "weekly" | "monthly" = "weekly") => ({ url: absUrl(path), lastModified: latest, changeFrequency: freq, priority });
+  const page = (path: string, priority: number, freq: "daily" | "weekly" | "monthly" | "yearly" = "weekly") => ({ url: absUrl(path), lastModified: latest, changeFrequency: freq, priority });
   return [
     page("/", 1, "daily"),
     page("/new", 0.8, "daily"),
@@ -36,5 +36,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page("/apply", 0.4, "monthly"),
     page("/privacy", 0.2, "monthly"),
     page("/terms", 0.2, "monthly"),
+    page("/cookies", 0.1, "yearly"),
+    page("/creator-terms", 0.2, "yearly"),
+    page("/content-removal", 0.2, "yearly"),
+    page("/18-plus", 0.2, "yearly"),
+    page("/privacy-choices", 0.1, "yearly"),
   ];
 }

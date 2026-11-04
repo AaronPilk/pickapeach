@@ -3,6 +3,7 @@ import "./globals.css";
 import { Ambient, Dock, Header, Reveal } from "@/components/Chrome";
 import { THEME_SCRIPT } from "@/lib/theme";
 import Tracker from "@/components/Tracker";
+import CookieBanner from "@/components/CookieBanner";
 import AgeGate from "@/components/AgeGate";
 import UnlockSheet from "@/components/UnlockSheet";
 import { JsonLd } from "@/components/Static";
@@ -44,16 +45,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <JsonLd data={siteGraph()} />
-        {site.gaId && (
-          <>
-            <script async src={`https://www.googletagmanager.com/gtag/js?id=${site.gaId}`} />
-            <script
-              dangerouslySetInnerHTML={{
-                __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${site.gaId}',{send_page_view:false});`,
-              }}
-            />
-          </>
-        )}
       </head>
       <body>
         <Ambient />
@@ -62,6 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Dock />
         <UnlockSheet />
         <AgeGate />
+        <CookieBanner />
         <Tracker />
         <Reveal />
       </body>

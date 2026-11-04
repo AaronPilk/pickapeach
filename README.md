@@ -79,9 +79,33 @@ Any extra query params are kept too, so you can add `sub1`, `zone_id`, etc.
 
 Conversion pixels: set `NEXT_PUBLIC_PIXEL_FOLLOW` / `NEXT_PUBLIC_PIXEL_LEAD` (space-separated URLs, `{ts}` `{event}` `{creator}` get replaced) and rebuild. `NEXT_PUBLIC_GA_ID` turns on GA4.
 
+## Privacy, consent and legal pages
+
+- **Legal pages:** `/terms`, `/privacy`, `/cookies`, `/creator-terms`, `/content-removal` (TAKE IT DOWN + DMCA), `/18-plus` (age + 2257 statement), `/privacy-choices`. All linked in the footer. Written for a Florida operator; have a lawyer give them a once-over before you scale.
+- **Before launch, set these in Cloudflare Pages → Settings → Variables (build) and redeploy:** `NEXT_PUBLIC_LEGAL_ENTITY` (your company's legal name), `NEXT_PUBLIC_LEGAL_ADDRESS` (mailing address, needed for the DMCA agent), and optionally `NEXT_PUBLIC_PRIVACY_EMAIL` / `NEXT_PUBLIC_DMCA_EMAIL` (default: `contactEmail` in `src/lib/config.ts`). Register the DMCA agent at copyright.gov (about $6) using the same details.
+- **Cookie consent:** EU/EEA/UK/Swiss visitors get an opt-in banner (equal "Necessary only" / "Accept all" buttons); everyone else gets a slim notice with a link to their choices. Global Privacy Control turns off ad pixels automatically. Without analytics consent nothing is stored on the device and visits are counted anonymously. Google Analytics and conversion pixels only load with consent. Region comes from `/api/geo` (country only).
+- **SMS consent:** the exact checkbox wording lives in `src/lib/sms.ts` and is stored with every lead, with a timestamp. The leads CSV only includes people who agreed and haven't opted out, so it's safe to import into your texting tool. Re-download before each send.
+- **Requests:** opt-outs, deletion/access/correction requests and content reports land in `/admin` → **Requests**. Opt-outs stop marketing instantly (and are forwarded to `LEAD_WEBHOOK_URL` as `type: "optout"` so your CRM can mark do-not-contact). "Erase their data" wipes matching leads and creator accounts, including uploaded files. Non-consent and under-18 reports show a 48-hour countdown: set `ALERT_WEBHOOK_URL` (Slack/Zapier/GHL webhook) so you get pinged the moment one arrives.
+- **Creators** can delete their own account in Creator Studio (password required). It wipes the profile and every uploaded file and rebuilds the site if they were public.
+- **Retention:** run `supabase/migrations/0004_retention.sql` once in the Supabase SQL editor. It schedules a nightly job that deletes analytics older than 25 months and security logs older than 30 days, which is what the Privacy Policy promises.
+
+## Security
+
+- Page security headers (CSP, HSTS, no framing, etc.) are in `public/_headers`; Worker responses get the same in `worker/index.ts`. Uploaded media is served with a sandbox CSP and can't be embedded by other sites.
+- The Worker blocks cross-site POSTs. Leads, sign-ups, logins, uploads (60 files / 1.5 GB per creator per day) and requests are rate-limited per connection in the database. A stranger can no longer lock you out of the dashboard.
+- IP addresses are hashed in the database with a secret, daily-rotating salt; the raw IP is never stored.
+- The Pages deploy hook lives only in the database (`private.settings`); rebuilds are triggered there via `pg_net`.
+- Self-serve profiles: media must come from the creator's own upload folder, vibes must be from the Studio list, social fields are reduced to plain handles, page links must be `https://`.
+- **One step left (5 minutes):** today the Worker talks to Supabase with the public key, so someone could call the database functions directly and skip the site's checks (they still can't read any table). To close that:
+  1. Supabase → Project Settings → API Keys → create a **secret** key (`sb_secret_…`) and copy it.
+  2. Cloudflare → Workers & Pages → pickapeach → Settings → Variables and secrets → **Add** → type **Secret**, name `SUPABASE_KEY`, paste the key, save (Production and Preview).
+  3. Deployments → retry the latest deployment, and check the site still loads and unlock still works.
+  4. Run `supabase/migrations/0005_lock_api.sql` in the Supabase SQL editor.
+- Dashboard password: use 12+ characters (`select private.set_admin_password('…');` enforces it). Once you're on your own domain, put Cloudflare Access (free, email code) in front of `/admin*` and `/api/admin/*` for a second lock.
+
 ## Dashboard
 
-`/admin`: visitors, sessions, clicks, leads by day, by source, by campaign, by creator, countries, devices, landing pages, every event type, live feed, lead CSV export. Change the password in the Supabase SQL editor:
+`/admin`: approvals, privacy/takedown requests, visitors, sessions, clicks, leads by day, by source, by campaign, by creator, countries, devices, landing pages, every event type, live feed, lead CSV export. Change the password in the Supabase SQL editor:
 
 ```sql
 select private.set_admin_password('new-password');
@@ -94,7 +118,7 @@ Cloudflare Pages project `pickapeach` is connected to this repo: every push to `
 Manual deploy: `npm run deploy` (build + `wrangler pages deploy`).
 
 Env (build time, optional): `NEXT_PUBLIC_SITE_URL` (canonical domain, default https://pickapeach.com), `NEXT_PUBLIC_GA_ID`, `NEXT_PUBLIC_PIXEL_FOLLOW`, `NEXT_PUBLIC_PIXEL_LEAD`, `NEXT_PUBLIC_NOINDEX=1`.
-Worker secrets (optional): `IP_SALT`, `LEAD_WEBHOOK_URL`.
+Worker secrets: `SUPABASE_KEY` (secret key, see Security), `LEAD_WEBHOOK_URL`, `ALERT_WEBHOOK_URL`. Build vars: `NEXT_PUBLIC_LEGAL_ENTITY`, `NEXT_PUBLIC_LEGAL_ADDRESS`, `NEXT_PUBLIC_PRIVACY_EMAIL`, `NEXT_PUBLIC_DMCA_EMAIL`.
 
 ## Local
 

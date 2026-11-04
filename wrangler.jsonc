@@ -6,14 +6,13 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
-    "SUPABASE_URL": "https://qcuzrmceswanetrmimzn.supabase.co",
-    // Supabase publishable key. Safe to ship: every table is RLS-locked and the
-    // Worker can only call the purpose-built functions in supabase/migrations.
-    "SUPABASE_KEY": "sb_publishable_zG7RWc6SzzTIVBRMPXSJ0w_K0tLxwfD"
+    "SUPABASE_URL": "https://qcuzrmceswanetrmimzn.supabase.co"
   },
   // Creator photo + video uploads.
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "pickapeach-media" }]
-  // Optional secrets (Pages → Settings → Variables and secrets):
-  //   IP_SALT           any random string, used to hash visitor IPs
-  //   LEAD_WEBHOOK_URL  GoHighLevel / Zapier webhook that gets every new lead
+  // Secrets (Pages → Settings → Variables and secrets, type "Secret"):
+  //   SUPABASE_KEY       Supabase secret key (sb_secret_...). Until it's set the Worker uses the public key built into
+  //                      worker/index.ts. See README → Security.
+  //   LEAD_WEBHOOK_URL   GoHighLevel / Zapier webhook that gets every new lead and every opt-out
+  //   ALERT_WEBHOOK_URL  webhook pinged when a takedown or privacy request arrives (urgent ones flagged)
 }

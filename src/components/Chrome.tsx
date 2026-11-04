@@ -70,7 +70,7 @@ const NAV = [
   { href: "/blog", label: "Blog" },
 ];
 
-const PAGES = new Set(["/", "/new", "/trending", "/faq", "/about", "/privacy", "/terms", "/apply", "/vip", "/more", "/admin", "/clips", "/blog", "/creator"]);
+const PAGES = new Set(["/", "/new", "/trending", "/faq", "/about", "/privacy", "/terms", "/apply", "/vip", "/more", "/admin", "/clips", "/blog", "/creator", "/cookies", "/creator-terms", "/content-removal", "/18-plus", "/privacy-choices"]);
 export function isProfilePath(path: string) {
   return !PAGES.has(path) && !path.startsWith("/browse") && !path.startsWith("/from") && !path.startsWith("/blog") && path.split("/").filter(Boolean).length === 1;
 }

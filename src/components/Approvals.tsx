@@ -98,7 +98,7 @@ function Review({ a, onClose, onAct }: { a: App; onClose: () => void; onAct: (a:
   const [preview, setPreview] = useState(false);
   const [play, setPlay] = useState<string | null>(null);
   const d = a.data;
-  const checks: [string, string][] = [["adult", "18 or older"], ["everyone_adult", "Everyone shown is 18+"], ["owner", "Owns the content and accounts"], ["non_explicit", "Not explicit"]];
+  const checks: [string, string][] = [["adult", "18 or older"], ["everyone_adult", "Everyone shown is 18+"], ["owner", "Owns the content and accounts"], ["non_explicit", "Not explicit"], ["terms", "Agreed to Creator Terms"]];
   const asCreator: Creator = {
     slug: a.slug || "preview", name: d.name || "", handle: d.handle, tagline: d.tagline || "", bio: d.bio || "", age: a.age, location: d.location, region: d.region,
     height: d.height, hair: d.hair, eyes: d.eyes, tags: d.tags || [], fansUrl: d.fansUrl || "#", free: d.free ?? true, addedAt: "", updatedAt: "",

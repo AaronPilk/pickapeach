@@ -1,13 +1,18 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Peach } from "./Icons";
 import { track } from "@/lib/track";
 
 const KEY = "pp_age_ok";
 const BOT = /bot|crawl|spider|slurp|lighthouse|pagespeed|headless|preview/i;
+// Anyone can read the legal pages before agreeing to them.
+const OPEN = ["/terms", "/privacy", "/cookies", "/creator-terms", "/content-removal", "/18-plus", "/privacy-choices"];
 
 export default function AgeGate() {
+  const path = usePathname() || "/";
   const [show, setShow] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
@@ -24,16 +29,17 @@ export default function AgeGate() {
     }
   }, []);
 
+  const onOpenPage = OPEN.some((p) => path.startsWith(p));
   useEffect(() => {
-    if (!show) return;
+    if (!show || onOpenPage) return;
     const prev = document.documentElement.style.overflow;
     document.documentElement.style.overflow = "hidden";
     return () => {
       document.documentElement.style.overflow = prev;
     };
-  }, [show]);
+  }, [show, onOpenPage]);
 
-  if (!show) return null;
+  if (!show || onOpenPage) return null;
 
   const enter = () => {
     try {
@@ -41,6 +47,7 @@ export default function AgeGate() {
     } catch {}
     document.cookie = `pp_age=1; Path=/; Max-Age=${30 * 86400}; SameSite=Lax`;
     track("age_gate_pass");
+    window.dispatchEvent(new Event("pp:age-ok"));
     setLeaving(true);
     setTimeout(() => setShow(false), 200);
   };
@@ -63,7 +70,9 @@ export default function AgeGate() {
         <a className="btn btn-plain btn-block" href="https://www.google.com" onClick={() => track("age_gate_leave")} rel="nofollow noopener">
           No, take me out
         </a>
-        <p className="fine">By continuing you agree to our Terms and Privacy Policy.</p>
+        <p className="fine">
+          By continuing you agree to our <Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy Policy</Link>.
+        </p>
       </div>
     </div>
   );

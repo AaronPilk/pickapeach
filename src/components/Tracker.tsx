@@ -3,12 +3,36 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { initTracking, track } from "@/lib/track";
+import { getConsent, onConsent } from "@/lib/consent";
 import { site } from "@/lib/config";
 
 // Page views, engaged time + scroll depth per page, outbound/social clicks via data attributes.
 export default function Tracker() {
   const path = usePathname();
   const state = useRef({ start: 0, active: 0, lastTick: 0, depth: 0, path: "" });
+
+  // Google Analytics (if configured) only loads with analytics consent.
+  useEffect(() => {
+    if (!site.gaId) return;
+    const load = () => {
+      if (!getConsent().analytics || document.getElementById("ga-src")) return;
+      const w = window as unknown as { dataLayer: unknown[]; gtag: (...a: unknown[]) => void };
+      w.dataLayer = w.dataLayer || [];
+      w.gtag = function gtag() {
+        // eslint-disable-next-line prefer-rest-params
+        w.dataLayer.push(arguments);
+      };
+      w.gtag("js", new Date());
+      w.gtag("config", site.gaId, { send_page_view: false, allow_google_signals: getConsent().ads, allow_ad_personalization_signals: getConsent().ads });
+      const sc = document.createElement("script");
+      sc.id = "ga-src";
+      sc.async = true;
+      sc.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(site.gaId)}`;
+      document.head.appendChild(sc);
+    };
+    load();
+    return onConsent(load);
+  }, []);
 
   useEffect(() => {
     initTracking();

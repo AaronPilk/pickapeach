@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import Sheet from "./Sheet";
 import { Check, Lock } from "./Icons";
 import { closeGate, markUnlocked, useVip } from "@/lib/vip";
-import { track } from "@/lib/track";
+import { leadAttribution, track } from "@/lib/track";
+import { SMS_CONSENT_TEXT } from "@/lib/sms";
 import type { VipContent } from "@/lib/types";
 
 function formatPhone(v: string) {
@@ -58,10 +59,7 @@ export default function UnlockSheet() {
     setError("");
     submitted.current = true;
     track("lead_submit", { c: vip.creator, m: { o: vip.origin } });
-    let attr: unknown = null;
-    try {
-      attr = { ft: JSON.parse(localStorage.getItem("pp_ft") || "null"), lt: JSON.parse(sessionStorage.getItem("pp_lt") || "null") };
-    } catch {}
+    const attr = leadAttribution();
     try {
       const hp = (e.currentTarget.elements.namedItem("website") as HTMLInputElement | null)?.value || "";
       const r = await fetch("/api/lead", {
@@ -110,7 +108,7 @@ export default function UnlockSheet() {
               <Lock />
             </div>
             <h2>{count ? `See ${count} more girls` : "See everyone"}</h2>
-            <p>Some of our creators are hidden. Add your email and number once to see all of them. It&apos;s free, and only we see your details.</p>
+            <p>Some of our creators are hidden. Add your email and number once to see all of them. It&apos;s free, and only our team sees your details. We never show them to anyone else.</p>
           </div>
           <div className="form-card">
             <label data-invalid={touched && !emailOk}>
@@ -126,8 +124,8 @@ export default function UnlockSheet() {
           <label className="check">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} aria-invalid={touched && !consent} />
             <span>
-              I&apos;m 18+ and agree to get emails and texts from Pick a Peach about new creators. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help.{" "}
-              <Link href="/privacy" onClick={() => closeGate()}>Privacy</Link> · <Link href="/terms" onClick={() => closeGate()}>Terms</Link>
+              {SMS_CONSENT_TEXT}{" "}
+              See our <Link href="/terms#messages" onClick={() => closeGate()}>Terms</Link> and <Link href="/privacy" onClick={() => closeGate()}>Privacy Policy</Link>.
             </span>
           </label>
           {error && <p className="form-error" role="alert">{error}</p>}

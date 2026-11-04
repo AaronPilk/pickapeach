@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Logo } from "./Chrome";
 import Approvals from "./Approvals";
+import Requests from "./Requests";
 
 type Row = Record<string, string | number | null>;
 type Stats = {
@@ -28,7 +29,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recent, setRecent] = useState<Row[]>([]);
   const [leads, setLeads] = useState<Row[]>([]);
-  const [tab, setTab] = useState<"overview" | "creators" | "approvals" | "leads" | "live">("overview");
+  const [tab, setTab] = useState<"overview" | "creators" | "approvals" | "requests" | "leads" | "live">("overview");
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async (d: number) => {
@@ -118,9 +119,9 @@ export default function AdminDashboard() {
       </div>
 
       <div className="chips" style={{ marginTop: 6 }}>
-        {(["overview", "creators", "approvals", "leads", "live"] as const).map((x) => (
+        {(["overview", "creators", "approvals", "requests", "leads", "live"] as const).map((x) => (
           <button key={x} className="chip" aria-pressed={tab === x} onClick={() => setTab(x)}>
-            {x === "live" ? "Live feed" : x === "creators" ? "Creator stats" : x === "approvals" ? "Approvals" : x[0].toUpperCase() + x.slice(1)}
+            {x === "live" ? "Live feed" : x === "creators" ? "Creator stats" : x === "approvals" ? "Approvals" : x === "requests" ? "Requests" : x[0].toUpperCase() + x.slice(1)}
           </button>
         ))}
       </div>
@@ -187,11 +188,19 @@ export default function AdminDashboard() {
 
       {tab === "leads" && (
         <Card title={`Leads (${leads.length}${leads.length === 200 ? "+" : ""})`} action={<a className="btn btn-sm btn-coral" href="/api/admin/leads.csv">Download CSV</a>}>
-          <Table rows={leads} cols={[["created_at", "When"], ["kind", "Type"], ["email", "Email"], ["phone", "Phone"], ["source", "Source"], ["campaign", "Campaign"], ["origin", "Unlocked from"], ["creator", "Creator"], ["country", "Country"], ["city", "City"], ["device", "Device"]]} />
+          <p className="t-foot c2" style={{ margin: "0 0 10px" }}>
+            The CSV only includes people who agreed to messages and haven&apos;t opted out, so it&apos;s safe to import into your texting tool. Re-download before every send.
+          </p>
+          <Table
+            rows={leads.map((l) => ({ ...l, status: l.erased_at ? "erased" : l.do_not_contact ? "opted out" : l.consent ? "ok to message" : "no consent" }))}
+            cols={[["created_at", "When"], ["status", "Messages"], ["kind", "Type"], ["email", "Email"], ["phone", "Phone"], ["source", "Source"], ["campaign", "Campaign"], ["origin", "Unlocked from"], ["creator", "Creator"], ["country", "Country"], ["city", "City"], ["device", "Device"]]}
+          />
         </Card>
       )}
 
       {tab === "approvals" && <Approvals />}
+
+      {tab === "requests" && <Requests />}
 
       {tab === "live" && (
         <Card title="Live feed" note="Latest 80 actions, refreshes every 5 seconds.">

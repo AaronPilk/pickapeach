@@ -9,7 +9,11 @@
 //   /api/admin/*             password-protected dashboard data + creator approvals
 //   /api/creator/*           Creator Studio: accounts, profile drafts, photo/video uploads
 //   GET  /m/*                uploaded media from R2 (supports Range for iOS video)
+//   POST /api/privacy        privacy + takedown requests (opt out, delete, NCII, copyright, ...)
+//   GET  /api/geo            visitor's country + cookie rule for the consent banner (sets pp_geo)
+// Worker responses get security headers here; static pages get theirs from public/_headers.
 import roster from "../data/creators.json";
+import { SMS_CONSENT_TEXT } from "../src/lib/sms";
 import selfServe from "../data/self-serve.json";
 import { mergeRoster } from "../src/lib/roster";
 
@@ -18,8 +22,8 @@ interface Env {
   MEDIA?: R2Bucket;
   SUPABASE_URL?: string;
   SUPABASE_KEY?: string;
-  IP_SALT?: string;
   LEAD_WEBHOOK_URL?: string;
+  ALERT_WEBHOOK_URL?: string;
 }
 
 type Json = Record<string, unknown>;
@@ -33,32 +37,111 @@ const alias = new Map(
     .map((c) => [c.slug, c.dbSlug as string]),
 );
 
-const CONSENT_TEXT =
-  "I agree to get emails and texts from Pick a Peach about new creators and drops. Message frequency varies. Msg & data rates may apply. Reply STOP to cancel, HELP for help.";
-
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
-    const p = url.pathname;
-    try {
-      if (p === "/api/t" && req.method === "POST") return await handleTrack(req, env, ctx);
-      if (p.startsWith("/go/")) return await handleGo(req, env, ctx, url);
-      if (p === "/api/lead" && req.method === "POST") return await handleLead(req, env, ctx);
-      if (p === "/api/vip/summary") return await handleSummary(req, env, ctx);
-      if (p === "/api/live") return await handleLive(req, env, ctx);
-      if (p.startsWith("/m/")) return await serveMedia(req, env, url);
-      if (p.startsWith("/api/creator/")) return await handleCreator(req, env, url);
-      if (p === "/api/vip") return await handleVip(req, env);
-      if (p.startsWith("/api/admin/")) return await handleAdmin(req, env, url);
-      if (p.startsWith("/api/")) return json({ error: "not found" }, 404);
-    } catch (err) {
-      console.error(p, err);
-      if (p.startsWith("/go/")) return Response.redirect(url.origin + "/", 302);
-      return json({ error: "server error" }, 500);
-    }
-    return env.ASSETS.fetch(req);
+    return secure(req, url, await route(req, env, ctx, url));
   },
 } satisfies ExportedHandler<Env>;
+
+async function route(req: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
+  const p = url.pathname;
+  // Block cross-site form posts and fetches to anything that changes data (cookies are SameSite too; this is belt and braces).
+  if (p.startsWith("/api/") && p !== "/api/t" && !["GET", "HEAD", "OPTIONS"].includes(req.method) && !sameOrigin(req, url)) {
+    return json({ error: "forbidden" }, 403);
+  }
+  try {
+    if (p === "/api/t" && req.method === "POST") return await handleTrack(req, env, ctx);
+    if (p.startsWith("/go/")) return await handleGo(req, env, ctx, url);
+    if (p === "/api/lead" && req.method === "POST") return await handleLead(req, env, ctx);
+    if (p === "/api/privacy" && req.method === "POST") return await handleRequest(req, env, ctx);
+    if (p === "/api/vip/summary") return await handleSummary(req, env, ctx);
+    if (p === "/api/live") return await handleLive(req, env, ctx);
+    if (p === "/api/geo") return handleGeo(req, url);
+    if (p.startsWith("/m/")) return await serveMedia(req, env, url);
+    if (p.startsWith("/api/creator/")) return await handleCreator(req, env, url);
+    if (p === "/api/vip") return await handleVip(req, env);
+    if (p.startsWith("/api/admin/")) return await handleAdmin(req, env, url);
+    if (p.startsWith("/api/")) return json({ error: "not found" }, 404);
+  } catch (err) {
+    console.error(p, err);
+    if (p.startsWith("/go/")) return Response.redirect(url.origin + "/", 302);
+    return json({ error: "server error" }, 500);
+  }
+  return env.ASSETS.fetch(req);
+}
+
+// ---------------------------------------------------------------- security headers + consent region
+
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  "frame-src 'none'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join("; ");
+
+// Cookie consent is opt-in here (GDPR / UK GDPR / Swiss law); everywhere else it's notice + opt-out.
+const OPT_IN = new Set("AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE IS LI NO GB CH".split(" "));
+
+function secure(_req: Request, url: URL, res: Response) {
+  const out = new Response(res.body, res);
+  const h = out.headers;
+  const https = url.protocol === "https:";
+  const p = url.pathname;
+  if (p.startsWith("/m/")) {
+    // Uploaded media: never executable, never embeddable by other sites.
+    h.set("content-security-policy", "default-src 'none'; sandbox");
+    h.set("cross-origin-resource-policy", "same-site");
+  } else {
+    h.set("content-security-policy", CSP + (https ? "; upgrade-insecure-requests" : ""));
+    h.set("cross-origin-opener-policy", "same-origin");
+  }
+  if (https) h.set("strict-transport-security", "max-age=63072000; includeSubDomains");
+  h.set("x-content-type-options", "nosniff");
+  h.set("x-frame-options", "DENY");
+  h.set("referrer-policy", "strict-origin-when-cross-origin");
+  h.set("permissions-policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=(), interest-cohort=()");
+  if (p.startsWith("/api/") || p.startsWith("/go/")) h.set("x-robots-tag", "noindex, nofollow");
+  return out;
+}
+
+// Which cookie rules apply: opt-in in the EU/EEA/UK/Switzerland, notice + opt-out elsewhere.
+// Unknown country gets the stricter rule. Only the country is used; nothing is stored server-side.
+function handleGeo(req: Request, url: URL) {
+  const country = ((req.cf as { country?: string } | undefined)?.country || "").toUpperCase();
+  const rule = !country || country === "XX" || country === "T1" || OPT_IN.has(country) ? "optin" : "optout";
+  const secureFlag = url.protocol === "https:" ? "; Secure" : "";
+  return json({ country, rule }, 200, {
+    "cache-control": "private, no-store",
+    "set-cookie": `pp_geo=${country || "XX"}.${rule}; Path=/; Max-Age=86400; SameSite=Lax${secureFlag}`,
+  });
+}
+
+function sameOrigin(req: Request, url: URL) {
+  const origin = req.headers.get("origin");
+  if (origin) {
+    try {
+      return new URL(origin).host === url.host;
+    } catch {
+      return false;
+    }
+  }
+  return req.headers.get("sec-fetch-site") !== "cross-site";
+}
+
+function clientIp(req: Request) {
+  return req.headers.get("cf-connecting-ip") || "";
+}
 
 // ---------------------------------------------------------------- tracking
 
@@ -83,7 +166,7 @@ async function handleTrack(req: Request, env: Env, ctx: ExecutionContext) {
     att: body.ctx ? attribution(body.ctx as Json) : undefined,
     enr: await enrich(req, env, body.ctx as Json | undefined),
   };
-  ctx.waitUntil(rpc(env, "ingest", { p: payload }).catch((e) => console.error("ingest", e)));
+  ctx.waitUntil(rpc(env, "ingest", { p: payload }, clientIp(req)).catch((e) => console.error("ingest", e)));
   return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
 }
 
@@ -115,7 +198,7 @@ async function handleGo(req: Request, env: Env, ctx: ExecutionContext, url: URL)
   const payload: Json = { s, v, e: [event], enr: await enrich(req, env) };
   // Someone landing on /go directly from an ad still gets attributed.
   if (isNewSession) payload.att = attribution({ lt: { q: Object.fromEntries(url.searchParams), ref: req.headers.get("referer") || "", ref_host: hostOf(req.headers.get("referer")), land: url.pathname } });
-  ctx.waitUntil(rpc(env, "ingest", { p: payload }).catch((e) => console.error("go", e)));
+  ctx.waitUntil(rpc(env, "ingest", { p: payload }, clientIp(req)).catch((e) => console.error("go", e)));
 
   return new Response(null, {
     status: 302,
@@ -155,14 +238,16 @@ async function handleLead(req: Request, env: Env, ctx: ExecutionContext) {
     for (const k of ["instagram", "tiktok", "fans", "message"]) if (str(b[k], 500)) extra[k] = str(b[k], 500);
   }
 
-  const res = (await rpc(env, "submit_lead", {
+  let res: { token: string; existing: boolean };
+  try {
+    res = (await rpc(env, "submit_lead", {
     p: {
       kind,
       email,
       phone: phone || null,
       name: name || null,
       consent: b.consent === true,
-      consent_text: kind === "vip" ? CONSENT_TEXT : null,
+      consent_text: kind === "vip" ? SMS_CONSENT_TEXT : null,
       source: att.source && att.source !== "direct" ? att.source : null,
       medium: att.medium || null,
       campaign: att.campaign || null,
@@ -177,18 +262,24 @@ async function handleLead(req: Request, env: Env, ctx: ExecutionContext) {
       region: enr.region,
       city: enr.city,
       device: enr.device,
-      ip_hash: enr.ip_hash,
       user_agent: str(req.headers.get("user-agent"), 400),
       extra: Object.keys(extra).length ? extra : null,
     },
-  })) as { token: string; existing: boolean };
+  }, clientIp(req))) as { token: string; existing: boolean };
+  } catch (e) {
+    const msg = rpcMessage(e);
+    return json({ error: msg }, /too many/i.test(msg) ? 429 : 422);
+  }
 
   if (env.LEAD_WEBHOOK_URL) {
     ctx.waitUntil(
       fetch(env.LEAD_WEBHOOK_URL, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind, email, phone, name, ...extra, source: att.source, campaign: att.campaign, country: enr.country, city: enr.city, at: new Date().toISOString() }),
+        body: JSON.stringify({
+          kind, email, phone, name, ...extra, source: att.source, campaign: att.campaign, country: enr.country, city: enr.city,
+          consent: b.consent === true, consent_text: kind === "vip" ? SMS_CONSENT_TEXT : null, page: str(b.page, 300) || null, at: new Date().toISOString(),
+        }),
       }).catch(() => {}),
     );
   }
@@ -201,6 +292,46 @@ async function handleLead(req: Request, env: Env, ctx: ExecutionContext) {
   headers.append("set-cookie", `pp_vip=${res.token}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`);
   headers.append("set-cookie", `pp_unlocked=1; Path=/; Max-Age=31536000; Secure; SameSite=Lax`);
   return new Response(JSON.stringify({ ok: true, existing: res.existing, vip }), { headers });
+}
+
+// Privacy choices + takedown requests. Opt-outs take effect immediately in the database.
+async function handleRequest(req: Request, env: Env, ctx: ExecutionContext) {
+  if (Number(req.headers.get("content-length") || 0) > 16_000) return json({ error: "too large" }, 413);
+  const b = (await req.json().catch(() => ({}))) as Json;
+  if (str(b.website, 200)) return json({ ok: true });
+  const country = ((req.cf as { country?: string } | undefined)?.country || "").slice(0, 8);
+  try {
+    await rpc(env, "submit_request", {
+      p: {
+        kind: str(b.kind, 20), email: str(b.email, 200), phone: str(b.phone, 40), name: str(b.name, 120), url: str(b.url, 500),
+        details: str(b.details, 4000), signature: str(b.signature, 120), good_faith: b.good_faith === true, country,
+      },
+    }, clientIp(req));
+  } catch (e) {
+    const msg = rpcMessage(e);
+    return json({ error: msg }, /too many/i.test(msg) ? 429 : 422);
+  }
+  const kind = str(b.kind, 20);
+  // Pass opt-outs to the CRM too, so a contact pushed there earlier gets marked do-not-contact.
+  if (env.LEAD_WEBHOOK_URL && (kind === "optout" || kind === "delete")) {
+    ctx.waitUntil(
+      fetch(env.LEAD_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: "optout", reason: kind, email: str(b.email, 200).toLowerCase(), phone: str(b.phone, 40), at: new Date().toISOString() }),
+      }).catch(() => {}),
+    );
+  }
+  if (env.ALERT_WEBHOOK_URL) {
+    ctx.waitUntil(
+      fetch(env.ALERT_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: "request", kind, urgent: ["ncii", "underage"].includes(kind), url: str(b.url, 500), at: new Date().toISOString() }),
+      }).catch(() => {}),
+    );
+  }
+  return json({ ok: true }, 200, { "cache-control": "no-store" });
 }
 
 async function handleVip(req: Request, env: Env) {
@@ -240,7 +371,7 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
   const p = url.pathname.replace("/api/admin/", "");
   if (p === "login" && req.method === "POST") {
     const b = (await req.json().catch(() => ({}))) as Json;
-    const tok = (await rpc(env, "admin_login", { p_password: str(b.password, 200) })) as string | null;
+    const tok = (await rpc(env, "admin_login", { p_password: typeof b.password === "string" ? b.password.slice(0, 200) : "" }, clientIp(req))) as string | null;
     if (!tok) return json({ error: "Wrong password, or too many tries. Wait 15 minutes." }, 401);
     return json({ ok: true }, 200, { "set-cookie": `pp_admin=${tok}; Path=/api/admin; Max-Age=1209600; HttpOnly; Secure; SameSite=Strict` });
   }
@@ -257,21 +388,30 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
   if (p === "creators/review" && req.method === "POST") {
     const b = (await req.json().catch(() => ({}))) as Json;
     const action = str(b.action, 20);
-    let res: unknown;
+    let res: { rebuilding?: boolean } | null;
     try {
       res = await rpc(env, "admin_creator_review", { p_token: tok, p_account: str(b.id, 64), p_action: action, p_tier: str(b.tier, 10) || null, p_note: str(b.note, 1000) || null });
     } catch (e) {
       return json({ error: rpcMessage(e) }, 422, nostore);
     }
-    // Public pages are static: rebuild the site so approvals and takedowns go live.
-    let rebuilding = false;
-    if (["approve", "reject", "unpublish", "tier"].includes(action)) {
-      const hook = (await rpc(env, "admin_deploy_hook", { p_token: tok }).catch(() => null)) as string | null;
-      if (hook && /^https:\/\/api\.cloudflare\.com\//.test(hook)) {
-        rebuilding = (await fetch(hook, { method: "POST" }).catch(() => null))?.ok ?? false;
-      }
+    // The database fires the Pages deploy hook itself (via pg_net), so the hook URL never leaves it.
+    return json({ ok: true, result: res, rebuilding: Boolean(res?.rebuilding) }, 200, nostore);
+  }
+  if (p === "requests") {
+    const data = await rpc(env, "admin_requests", { p_token: tok });
+    return data ? json(data, 200, nostore) : json({ error: "auth" }, 401);
+  }
+  if (p === "requests/resolve" && req.method === "POST") {
+    const b = (await req.json().catch(() => ({}))) as Json;
+    let res: { creator_accounts?: string[]; erased_leads?: number; rebuilding?: boolean };
+    try {
+      res = await rpc(env, "admin_request_resolve", { p_token: tok, p_id: str(b.id, 64), p_action: str(b.action, 20), p_note: str(b.note, 1000) || null });
+    } catch (e) {
+      return json({ error: rpcMessage(e) }, 422, nostore);
     }
-    return json({ ok: true, result: res, rebuilding }, 200, nostore);
+    let media = 0;
+    for (const acc of res.creator_accounts || []) media += await purgeMedia(env, acc);
+    return json({ ok: true, ...res, media_deleted: media }, 200, nostore);
   }
   if (p === "stats") {
     const days = Math.max(1, Math.min(365, Number(url.searchParams.get("days")) || 7));
@@ -282,14 +422,20 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
     const data = await rpc(env, "admin_recent", { p_token: tok, p_limit: 80 });
     return data ? json(data, 200, nostore) : json({ error: "auth" }, 401);
   }
-  if (p === "leads" || p === "leads.csv") {
-    const data = (await rpc(env, "admin_leads", { p_token: tok, p_limit: p === "leads.csv" ? 10000 : 200 })) as Json[] | null;
+  if (p === "leads") {
+    const data = await rpc(env, "admin_leads", { p_token: tok, p_limit: 200 });
+    return data ? json(data, 200, nostore) : json({ error: "auth" }, 401);
+  }
+  if (p === "leads.csv") {
+    // Only people who agreed to messages, haven't opted out and weren't erased, so the file is safe to import and message.
+    const data = (await rpc(env, "admin_leads_export", { p_token: tok })) as Json[] | null;
     if (!data) return json({ error: "auth" }, 401);
-    if (p === "leads") return json(data, 200, nostore);
-    const cols = ["created_at", "kind", "email", "phone", "name", "consent", "source", "medium", "campaign", "origin", "creator", "country", "region", "city", "device", "page"];
+    const cols = ["created_at", "email", "phone", "name", "consent_at", "consent_text", "source", "medium", "campaign", "origin", "creator", "country", "region", "city", "device", "page"];
     const esc = (x: unknown) => {
-      const s = x == null ? "" : typeof x === "object" ? JSON.stringify(x) : String(x);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      let s = x == null ? "" : typeof x === "object" ? JSON.stringify(x) : String(x);
+      // Stop spreadsheet apps from running anything a visitor typed as a formula.
+      if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const csv = [cols.join(","), ...data.map((r) => cols.map((c) => esc(r[c])).join(","))].join("\n");
     return new Response(csv, {
@@ -313,7 +459,7 @@ async function handleCreator(req: Request, env: Env, url: URL) {
     const b = (await req.json().catch(() => ({}))) as Json;
     let tok: string | null = null;
     try {
-      tok = (await rpc(env, p === "signup" ? "creator_signup" : "creator_login", { p_email: str(b.email, 200), p_password: typeof b.password === "string" ? b.password.slice(0, 200) : "" })) as string | null;
+      tok = (await rpc(env, p === "signup" ? "creator_signup" : "creator_login", { p_email: str(b.email, 200), p_password: typeof b.password === "string" ? b.password.slice(0, 200) : "" }, clientIp(req))) as string | null;
     } catch (e) {
       return json({ error: rpcMessage(e) }, 422, nostore);
     }
@@ -334,6 +480,18 @@ async function handleCreator(req: Request, env: Env, url: URL) {
     return me ? json(me, 200, nostore) : json({ error: "auth" }, 401, nostore);
   }
 
+  if (p === "delete" && req.method === "POST") {
+    const b = (await req.json().catch(() => ({}))) as Json;
+    let res: { account?: string };
+    try {
+      res = await rpc(env, "creator_delete_account", { p_token: tok, p_password: typeof b.password === "string" ? b.password.slice(0, 200) : "" }, clientIp(req));
+    } catch (e) {
+      return json({ error: rpcMessage(e) }, 422, nostore);
+    }
+    if (res?.account) await purgeMedia(env, res.account);
+    return json({ ok: true }, 200, { ...nostore, "set-cookie": cookie("", 0) });
+  }
+
   if (p === "save" && req.method === "POST") {
     if (Number(req.headers.get("content-length") || 0) > 64_000) return json({ error: "Too much data." }, 413, nostore);
     const b = (await req.json().catch(() => ({}))) as Json;
@@ -347,12 +505,18 @@ async function handleCreator(req: Request, env: Env, url: URL) {
 
   if (p === "media" && req.method === "POST") {
     if (!env.MEDIA) return json({ error: "Uploads aren't set up yet." }, 503, nostore);
-    const me = (await rpc(env, "creator_me", { p_token: tok })) as { account: { id: string } } | null;
-    if (!me) return json({ error: "auth" }, 401, nostore);
-    const kind = url.searchParams.get("kind");
+    const kind = url.searchParams.get("kind") === "clip" ? "clip" : url.searchParams.get("kind") === "poster" ? "poster" : "photo";
     const declared = Number(req.headers.get("content-length") || 0);
     const max = kind === "clip" ? CLIP_MAX : PHOTO_MAX;
     if (declared > max) return json({ error: kind === "clip" ? "Clips can be up to 50 MB." : "That image is too big." }, 413, nostore);
+    // Checks the session and the daily upload allowance (60 files / 1.5 GB per account).
+    let accountId: string | null;
+    try {
+      accountId = (await rpc(env, "creator_upload_begin", { p_token: tok, p_bytes: declared, p_kind: kind }, clientIp(req))) as string | null;
+    } catch (e) {
+      return json({ error: rpcMessage(e) }, 429, nostore);
+    }
+    if (!accountId) return json({ error: "auth" }, 401, nostore);
     const buf = new Uint8Array(await req.arrayBuffer());
     if (!buf.length || buf.length > max) return json({ error: "That file is too big or empty." }, 413, nostore);
     const type = sniff(buf);
@@ -364,7 +528,7 @@ async function handleCreator(req: Request, env: Env, url: URL) {
     // iPhone exports H.264 inside a .mov container. Serve those as MP4 so Chrome and Android play them too.
     const finalType = type === "video/quicktime" && hasBytes(buf, "avc1") ? "video/mp4" : type;
     const ext = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm" }[finalType];
-    const key = `c/${me.account.id}/${crypto.randomUUID()}.${ext}`;
+    const key = `c/${accountId}/${crypto.randomUUID()}.${ext}`;
     await env.MEDIA.put(key, buf, { httpMetadata: { contentType: finalType, cacheControl: "public, max-age=31536000, immutable" } });
     return json({ ok: true, src: `/m/${key}`, type: finalType, bytes: buf.length }, 200, nostore);
   }
@@ -395,11 +559,28 @@ function isHevcOnly(b: Uint8Array) {
   return (hasBytes(b, "hvc1") || hasBytes(b, "hev1")) && !hasBytes(b, "avc1");
 }
 
+// Deletes every file a creator uploaded (account deletion or an erasure request).
+async function purgeMedia(env: Env, account: string) {
+  if (!env.MEDIA || !/^[0-9a-f-]{36}$/.test(account)) return 0;
+  let cursor: string | undefined;
+  let n = 0;
+  do {
+    const list = await env.MEDIA.list({ prefix: `c/${account}/`, cursor, limit: 1000 });
+    const keys = list.objects.map((o) => o.key);
+    if (keys.length) {
+      await env.MEDIA.delete(keys);
+      n += keys.length;
+    }
+    cursor = list.truncated ? list.cursor : undefined;
+  } while (cursor);
+  return n;
+}
+
 async function serveMedia(req: Request, env: Env, url: URL) {
   if (!env.MEDIA) return new Response("Not found", { status: 404 });
   const key = decodeURIComponent(url.pathname.slice(3));
   if (!/^c\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|mp4|mov|webm)$/.test(key)) return new Response("Not found", { status: 404 });
-  const headers = new Headers({ "cache-control": "public, max-age=31536000, immutable", "accept-ranges": "bytes", "x-content-type-options": "nosniff" });
+  const headers = new Headers({ "cache-control": "public, max-age=31536000, immutable", "accept-ranges": "bytes", "content-disposition": "inline" });
   if (req.method === "HEAD") {
     const h = await env.MEDIA.head(key);
     if (!h) return new Response(null, { status: 404 });
@@ -426,10 +607,15 @@ async function serveMedia(req: Request, env: Env, url: URL) {
   return new Response(body, { headers });
 }
 
+// Passes through the plain-English errors our functions raise; hides anything that looks like database internals.
 function rpcMessage(e: unknown) {
   const m = e instanceof Error ? e.message : String(e);
   const match = m.match(/"message":"([^"]+)"/);
-  return match ? match[1] : "Something went wrong. Try again.";
+  const msg = match ? match[1].replace(/\\u0027/g, "'") : "";
+  if (!msg || msg.length > 200 || /violates|relation|column|function|syntax|constraint|permission|null value|duplicate key|invalid input|operator|schema|not authorized/i.test(msg)) {
+    return "Something went wrong. Try again.";
+  }
+  return msg;
 }
 
 // ---------------------------------------------------------------- helpers
@@ -439,11 +625,14 @@ function rpcMessage(e: unknown) {
 const DEFAULT_SUPABASE_URL = "https://qcuzrmceswanetrmimzn.supabase.co";
 const DEFAULT_SUPABASE_KEY = "sb_publishable_zG7RWc6SzzTIVBRMPXSJ0w_K0tLxwfD";
 
-async function rpc(env: Env, fn: string, args: Json) {
+// `ip` is the visitor's address, passed so the database can rate-limit and hash it with its own secret salt.
+// The raw IP is never stored.
+async function rpc(env: Env, fn: string, args: Json, ip?: string) {
   const key = env.SUPABASE_KEY || DEFAULT_SUPABASE_KEY;
   const base = env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
   const headers: Record<string, string> = { apikey: key, "content-type": "application/json" };
   if (!key.startsWith("sb_")) headers.authorization = `Bearer ${key}`;
+  if (ip) headers["x-pp-ip"] = ip.slice(0, 64);
   const r = await fetch(`${base}/rest/v1/rpc/${fn}`, { method: "POST", headers, body: JSON.stringify(args) });
   if (!r.ok) throw new Error(`${fn} ${r.status} ${(await r.text()).slice(0, 300)}`);
   const t = await r.text();
@@ -557,16 +746,10 @@ function attribution(ctx: Json) {
 
 const BOT = /bot|crawl|spider|slurp|headless|lighthouse|pagespeed|preview|facebookexternalhit|embedly|whatsapp|telegram|discord|curl|wget|python|axios|node-fetch|go-http|java\/|okhttp|monitor|uptime/i;
 
-async function enrich(req: Request, env: Env, c?: Json) {
+// IP hashing happens in the database with a secret salt (see private.ip_hash), not here.
+async function enrich(req: Request, _env: Env, c?: Json) {
   const cf = (req.cf || {}) as Record<string, unknown>;
   const ua = req.headers.get("user-agent") || "";
-  const ip = req.headers.get("cf-connecting-ip") || "";
-  const day = new Date().toISOString().slice(0, 10);
-  let ip_hash = "";
-  if (ip) {
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${ip}|${env.IP_SALT || "pickapeach"}|${day}`));
-    ip_hash = [...new Uint8Array(buf)].slice(0, 16).map((b) => b.toString(16).padStart(2, "0")).join("");
-  }
   const verified = (cf.botManagement as { verifiedBot?: boolean } | undefined)?.verifiedBot;
   return {
     country: (cf.country as string) || "",
@@ -581,7 +764,6 @@ async function enrich(req: Request, env: Env, c?: Json) {
     screen: c ? `${c.sw}x${c.sh}@${c.dpr}` : undefined,
     lang: c ? str(c.lang, 20) : undefined,
     net: c ? str(c.net, 10) : undefined,
-    ip_hash,
   };
 }
 

@@ -6,7 +6,7 @@ const creators = JSON.parse(readFileSync(new URL("../data/creators.json", import
 let selfServe = [];
 try { selfServe = JSON.parse(readFileSync(new URL("../data/self-serve.json", import.meta.url), "utf8")); } catch {}
 for (const c of selfServe) if (typeof c.age === "number" && c.age < 18) { console.error(`self-serve profile ${c.slug} is under 18`); process.exit(1); }
-const RESERVED = new Set(["clips", "browse", "from", "new", "trending", "faq", "about", "privacy", "terms", "admin", "vip", "apply", "api", "go", "media", "llms", "sitemap", "robots", "more", "members", "blog", "creator", "m"]);
+const RESERVED = new Set(["clips", "browse", "from", "new", "trending", "faq", "about", "privacy", "terms", "admin", "vip", "apply", "api", "go", "media", "llms", "sitemap", "robots", "more", "members", "blog", "creator", "m", "cookies", "creator-terms", "content-removal", "18-plus", "privacy-choices", "report"]);
 const errors = [];
 const slugs = new Set();
 

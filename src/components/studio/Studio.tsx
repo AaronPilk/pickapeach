@@ -17,7 +17,7 @@ type Draft = {
   height?: string; hair?: string; eyes?: string; tags: string[]; fansUrl?: string; free: boolean;
   socials: Record<string, string>; photos: Photo[]; clips: ClipT[];
 };
-type Attest = { adult?: boolean; owner?: boolean; everyone_adult?: boolean; non_explicit?: boolean };
+type Attest = { adult?: boolean; owner?: boolean; everyone_adult?: boolean; non_explicit?: boolean; terms?: boolean };
 type Me = {
   account: { id: string; email: string };
   profile: { slug?: string; status: string; tier: string; data: Partial<Draft>; attest?: Attest; note?: string; isLive: boolean; hasChanges: boolean };
@@ -239,14 +239,19 @@ export default function Studio() {
             ["everyone_adult", "Everyone in my photos and clips is 18 or older and agreed to be shown."],
             ["owner", "I own these photos and clips, or have the rights to post them, and these accounts are mine."],
             ["non_explicit", "My photos and clips aren't explicit (teasers only, nothing that would break the site rules)."],
+            ["terms", "I agree to the Creator Terms."],
           ] as [keyof Attest, string][]).map(([k, label]) => (
             <label key={k} className="check" style={{ fontSize: "0.875rem", color: "var(--label)" }}>
               <input type="checkbox" checked={!!attest[k]} onChange={(e) => { setAttest({ ...attest, [k]: e.target.checked }); setDirty(true); }} />
-              <span>{label}</span>
+              <span>
+                {k === "terms" ? <>I agree to the <a href="/creator-terms" target="_blank" rel="noopener" className="ct">Creator Terms</a>.</> : label}
+              </span>
             </label>
           ))}
         </div>
       </section>
+
+      <DeleteAccount onDeleted={() => setPhase("auth")} />
 
       {msg && <p className={msg.kind === "err" ? "form-error" : "studio-ok"} role="status">{msg.text}</p>}
       <div style={{ height: 110 }} />
@@ -496,5 +501,42 @@ function Auth({ onIn }: { onIn: (m: Me) => void }) {
         <p className="t-cap c3" style={{ marginTop: 12, textAlign: "center" }}>Creators must be 18+. Forgot your password? Email us and we&apos;ll reset it.</p>
       </form>
     </div>
+  );
+}
+
+// Wipes the account, the profile and every uploaded file. Asks for the password so a borrowed phone can't do it.
+function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const go = async () => {
+    setBusy(true);
+    setError("");
+    const r = await fetch("/api/creator/delete", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password }) });
+    const data = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    setBusy(false);
+    if (!r.ok || !data.ok) return setError(data.error || "That didn't work. Try again.");
+    onDeleted();
+  };
+  return (
+    <section className="danger-zone">
+      <h3>Delete account</h3>
+      <p className="t-foot c2" style={{ marginTop: 4 }}>
+        Removes your profile from the site within minutes and permanently deletes your account, photos and clips. This can&apos;t be undone.
+      </p>
+      {!open ? (
+        <button className="btn btn-sm btn-gray" style={{ marginTop: 12 }} onClick={() => setOpen(true)}>Delete my account</button>
+      ) : (
+        <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+          <input className="input" type="password" autoComplete="current-password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div style={{ display: "flex", gap: 10 }}>
+            <button className="btn btn-sm btn-gray" onClick={() => { setOpen(false); setPassword(""); setError(""); }}>Cancel</button>
+            <button className="btn btn-sm btn-danger" style={{ flex: 1 }} disabled={busy || !password} onClick={go}>{busy ? "Deleting…" : "Delete everything"}</button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
