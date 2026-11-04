@@ -19,3 +19,7 @@ $$;
 revoke all on function private.purge_old_data() from public, anon, authenticated;
 
 select cron.schedule('pp-purge-old-data', '23 8 * * *', 'select private.purge_old_data()');
+
+-- Same migration also moved pg_net out of the public schema (Supabase advisor warning):
+drop extension if exists pg_net;
+create extension pg_net with schema extensions;

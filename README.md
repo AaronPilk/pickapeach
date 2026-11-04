@@ -87,7 +87,7 @@ Conversion pixels: set `NEXT_PUBLIC_PIXEL_FOLLOW` / `NEXT_PUBLIC_PIXEL_LEAD` (sp
 - **SMS consent:** the exact checkbox wording lives in `src/lib/sms.ts` and is stored with every lead, with a timestamp. The leads CSV only includes people who agreed and haven't opted out, so it's safe to import into your texting tool. Re-download before each send.
 - **Requests:** opt-outs, deletion/access/correction requests and content reports land in `/admin` → **Requests**. Opt-outs stop marketing instantly (and are forwarded to `LEAD_WEBHOOK_URL` as `type: "optout"` so your CRM can mark do-not-contact). "Erase their data" wipes matching leads and creator accounts, including uploaded files. Non-consent and under-18 reports show a 48-hour countdown: set `ALERT_WEBHOOK_URL` (Slack/Zapier/GHL webhook) so you get pinged the moment one arrives.
 - **Creators** can delete their own account in Creator Studio (password required). It wipes the profile and every uploaded file and rebuilds the site if they were public.
-- **Retention:** run `supabase/migrations/0004_retention.sql` once in the Supabase SQL editor. It schedules a nightly job that deletes analytics older than 25 months and security logs older than 30 days, which is what the Privacy Policy promises.
+- **Retention:** a nightly pg_cron job (`pp-purge-old-data`, 3:23 AM Eastern) deletes analytics older than 25 months and security logs older than 30 days, which is what the Privacy Policy promises (`supabase/migrations/0004_retention.sql`).
 
 ## Security
 
@@ -96,11 +96,7 @@ Conversion pixels: set `NEXT_PUBLIC_PIXEL_FOLLOW` / `NEXT_PUBLIC_PIXEL_LEAD` (sp
 - IP addresses are hashed in the database with a secret, daily-rotating salt; the raw IP is never stored.
 - The Pages deploy hook lives only in the database (`private.settings`); rebuilds are triggered there via `pg_net`.
 - Self-serve profiles: media must come from the creator's own upload folder, vibes must be from the Studio list, social fields are reduced to plain handles, page links must be `https://`.
-- **One step left (5 minutes):** today the Worker talks to Supabase with the public key, so someone could call the database functions directly and skip the site's checks (they still can't read any table). To close that:
-  1. Supabase → Project Settings → API Keys → create a **secret** key (`sb_secret_…`) and copy it.
-  2. Cloudflare → Workers & Pages → pickapeach → Settings → Variables and secrets → **Add** → type **Secret**, name `SUPABASE_KEY`, paste the key, save (Production and Preview).
-  3. Deployments → retry the latest deployment, and check the site still loads and unlock still works.
-  4. Run `supabase/migrations/0005_lock_api.sql` in the Supabase SQL editor.
+- **Database API is locked down** (done 2026-11-04). The Worker uses the Supabase secret key (Cloudflare Pages secret `SUPABASE_KEY`, set for Production and Preview), and `supabase/migrations/0005_lock_api.sql` removed the public key's access to everything except public data (`public_profiles`, `live_stats`, `locked_summary`) and the two password-protected functions `npm run sync:sheet` uses. If you ever rotate the secret key in Supabase, update the Cloudflare secret and retry the latest deployment, or the site's forms and tracking stop working.
 - Dashboard password: use 12+ characters (`select private.set_admin_password('…');` enforces it). Once you're on your own domain, put Cloudflare Access (free, email code) in front of `/admin*` and `/api/admin/*` for a second lock.
 
 ## Dashboard
