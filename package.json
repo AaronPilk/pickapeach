@@ -7,7 +7,7 @@
     "dev": "next dev",
     "sync:sheet": "node scripts/sync-sheet.mjs",
     "placeholders": "node scripts/make-placeholders.mjs",
-    "build": "node scripts/check-data.mjs && next build",
+    "build": "node scripts/check-data.mjs && next build && node scripts/pages-worker.mjs",
     "preview": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy",
     "typecheck": "tsc --noEmit"

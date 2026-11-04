@@ -11,8 +11,8 @@ import roster from "../data/creators.json";
 
 interface Env {
   ASSETS: Fetcher;
-  SUPABASE_URL: string;
-  SUPABASE_KEY: string;
+  SUPABASE_URL?: string;
+  SUPABASE_KEY?: string;
   IP_SALT?: string;
   LEAD_WEBHOOK_URL?: string;
 }
@@ -249,10 +249,17 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
 
 // ---------------------------------------------------------------- helpers
 
+// Defaults let the same bundle run on Pages without dashboard env vars.
+// The publishable key is public by design: tables are RLS-locked, only the RPCs below are callable.
+const DEFAULT_SUPABASE_URL = "https://qcuzrmceswanetrmimzn.supabase.co";
+const DEFAULT_SUPABASE_KEY = "sb_publishable_zG7RWc6SzzTIVBRMPXSJ0w_K0tLxwfD";
+
 async function rpc(env: Env, fn: string, args: Json) {
-  const headers: Record<string, string> = { apikey: env.SUPABASE_KEY, "content-type": "application/json" };
-  if (!env.SUPABASE_KEY.startsWith("sb_")) headers.authorization = `Bearer ${env.SUPABASE_KEY}`;
-  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: "POST", headers, body: JSON.stringify(args) });
+  const key = env.SUPABASE_KEY || DEFAULT_SUPABASE_KEY;
+  const base = env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const headers: Record<string, string> = { apikey: key, "content-type": "application/json" };
+  if (!key.startsWith("sb_")) headers.authorization = `Bearer ${key}`;
+  const r = await fetch(`${base}/rest/v1/rpc/${fn}`, { method: "POST", headers, body: JSON.stringify(args) });
   if (!r.ok) throw new Error(`${fn} ${r.status} ${(await r.text()).slice(0, 300)}`);
   const t = await r.text();
   return t ? JSON.parse(t) : null;
