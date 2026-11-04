@@ -499,6 +499,9 @@ function Auth({ onIn }: { onIn: (m: Me) => void }) {
         {err && <p className="form-error">{err}</p>}
         <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={busy}>{busy ? "One sec…" : mode === "signup" ? "Create account" : "Log in"}</button>
         <p className="t-cap c3" style={{ marginTop: 12, textAlign: "center" }}>Creators must be 18+. Forgot your password? Email us and we&apos;ll reset it.</p>
+        <p className="t-cap c3" style={{ marginTop: 8, textAlign: "center" }}>
+          Part of the Pick a Peach team? <a className="ct" href="/admin">Owner sign-in</a>
+        </p>
       </form>
     </div>
   );
