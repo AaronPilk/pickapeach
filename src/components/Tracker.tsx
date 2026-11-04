@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { initTracking, track } from "@/lib/track";
+import { currentSessionId, initTracking, track } from "@/lib/track";
 import { getConsent, onConsent } from "@/lib/consent";
 import { site } from "@/lib/config";
 
@@ -38,6 +38,11 @@ export default function Tracker() {
     initTracking();
     // Delegated click tracking: any element with data-track="event" (+ data-creator, data-meta-*)
     const onClick = (e: MouseEvent) => {
+      // Without analytics cookies, hand the in-memory visit id to /go so the follow click joins the right visit.
+      const go = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="/go/"]');
+      if (go && !getConsent().analytics && !go.href.includes("_s=")) {
+        go.href += (go.href.includes("?") ? "&" : "?") + "_s=" + encodeURIComponent(currentSessionId());
+      }
       const el = (e.target as HTMLElement).closest<HTMLElement>("[data-track]");
       if (!el) return;
       const m: Record<string, string> = {};

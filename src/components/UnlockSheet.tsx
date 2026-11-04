@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import Sheet from "./Sheet";
 import { Check, Lock } from "./Icons";
 import { closeGate, markUnlocked, useVip } from "@/lib/vip";
-import { leadAttribution, track } from "@/lib/track";
+import { currentSessionId, leadAttribution, track } from "@/lib/track";
 import { SMS_CONSENT_TEXT } from "@/lib/sms";
 import type { VipContent } from "@/lib/types";
 
@@ -32,10 +32,12 @@ export default function UnlockSheet() {
   const [done, setDone] = useState(false);
   const [touched, setTouched] = useState(false);
   const submitted = useRef(false);
+  const openedAt = useRef(0);
   const count = vip.summary?.count ?? 0;
 
   useEffect(() => {
     if (vip.open) {
+      openedAt.current = Date.now();
       submitted.current = false;
       setError("");
       setDone(vip.unlocked);
@@ -65,7 +67,7 @@ export default function UnlockSheet() {
       const r = await fetch("/api/lead", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind: "vip", email: email.trim(), phone, consent, origin: vip.origin, creator: vip.creator, page: location.pathname, attr, website: hp }),
+        body: JSON.stringify({ kind: "vip", email: email.trim(), phone, consent, origin: vip.origin, creator: vip.creator, page: location.pathname, attr, website: hp, t: Date.now() - openedAt.current, sid: currentSessionId() }),
       });
       const data = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; vip?: VipContent; existing?: boolean };
       if (!r.ok || !data.ok) throw new Error(data.error || "Something went wrong. Try again.");

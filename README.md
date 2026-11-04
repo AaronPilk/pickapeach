@@ -77,6 +77,21 @@ https://www.pickapeach.com/?utm_source=trafficjunky&utm_medium=cpm&utm_campaign=
 
 Any extra query params are kept too, so you can add `sub1`, `zone_id`, etc.
 
+**Plain-English source labels** (`worker/sources.ts`). Every session gets a channel and a label a non-marketer can read: "ChatGPT", "Perplexity", "Google Search", "Google Ads", "Traffic Junky (paid ad)", "Instagram app", "Reddit", "linktr.ee", "Direct / unknown". Channels: Paid ads, AI assistants, Google & search, Social media, Adult sites, Creator pages, Email & texts, Other websites, Direct / unknown. Evidence is checked in order: ad click IDs (gclid, msclkid, ttclid…), then UTM tags, then the referring site, then the in-app browser (Instagram, TikTok, Snapchat…). The adult ad networks (Traffic Junky, ExoClick, JuicyAds, TrafficStars and others) always count as paid. Leads carry the same label, so the CSV shows where each unlock came from.
+
+**Engaged visits.** A visit counts as engaged once the person taps, scrolls or types. Real people almost always do; bots and fake ad clicks usually don't. Watch this number per paid source before raising spend.
+
+## Bot protection
+
+Bots are tagged and kept out of every dashboard number (they're still logged, so you can see how many were caught):
+
+- **Known crawlers and scripts** by user agent, plus Cloudflare's verified-bot flag.
+- **Automated browsers:** `navigator.webdriver`, no languages, zero-size screen.
+- **Cloud servers and VPNs** by network owner (AWS, Google Cloud, Azure, DigitalOcean, OVH, Hetzner and others), where most ad-fraud traffic comes from.
+- **Hidden trap link** (`/api/hp`): invisible to people and screen readers, blocked in robots.txt. Anything that follows it is flagged for the day, its visits are marked as bots and its form submissions are silently dropped.
+- **Form honeypots and timing** on the unlock form, the privacy/takedown form and creator sign-up: a hidden field people never see, and a minimum fill time. Bots get a fake "success" so they don't retry.
+- **Junk details:** throwaway email domains and fake phone numbers (555 exchanges, repeated or sequential digits) are rejected.
+
 Conversion pixels: set `NEXT_PUBLIC_PIXEL_FOLLOW` / `NEXT_PUBLIC_PIXEL_LEAD` (space-separated URLs, `{ts}` `{event}` `{creator}` get replaced) and rebuild. `NEXT_PUBLIC_GA_ID` turns on GA4.
 
 ## Privacy, consent and legal pages
@@ -101,7 +116,7 @@ Conversion pixels: set `NEXT_PUBLIC_PIXEL_FOLLOW` / `NEXT_PUBLIC_PIXEL_LEAD` (sp
 
 ## Dashboard
 
-`/admin`: approvals, privacy/takedown requests, visitors, sessions, clicks, leads by day, by source, by campaign, by creator, countries, devices, landing pages, every event type, live feed, lead CSV export.
+`/admin`: frosted-glass dashboard. **Overview** (real visitors, engaged visits, follow clicks, click rate, unlocks, bots blocked, each compared with the period before; daily chart; where visitors come from; top sources, creators, countries, devices). **Traffic** (every source by name with visitors, engaged %, follow clicks, click rate, unlocks; AI assistants; channel buckets; paid-ad campaigns by campaign and spot; an ad cost check where you type what you spent and get cost per visitor, click and unlock; landing pages; bots blocked by reason; a glossary). **Creators**, **Leads** (with CSV export), **Approvals**, **Requests**, **Live feed** and **Account**. Today / 7 / 30 / 90-day ranges.
 
 Each owner signs in with their own email and password. In **Account** you can change your password (signs out your other devices) and add or remove other owner logins. Logins lock for 15 minutes after 8 wrong tries from one connection. Passwords are stored as bcrypt hashes in `private.admin_users`; to reset a forgotten one, run in the Supabase SQL editor:
 

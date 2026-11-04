@@ -130,9 +130,12 @@ function buildCtx() {
     tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
     net: nav.connection?.effectiveType || "",
   };
+  // Automation tells (headless browsers report webdriver=true and no languages). Used for bot filtering only.
+  const nv = navigator as Navigator & { webdriver?: boolean };
+  const signals = { wd: nv.webdriver === true, hl: navigator.languages ? navigator.languages.length : -1 };
   if (!analyticsOn()) {
     const t = memTouch || touch;
-    return { ft: t, lt: t, ...device };
+    return { ft: t, lt: t, ...device, ...signals };
   }
   let ft = store(FT);
   if (!ft) {
@@ -149,7 +152,7 @@ function buildCtx() {
       sessionStorage.setItem(LT, lt);
     } catch {}
   }
-  return { ft: JSON.parse(ft), lt: JSON.parse(lt), ...device };
+  return { ft: JSON.parse(ft), lt: JSON.parse(lt), ...device, ...signals };
 }
 
 function clearStored() {
@@ -187,6 +190,12 @@ export function initTracking() {
   addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flush(true);
   });
+  // First real interaction (tap, scroll, key) marks the visit as "engaged": a strong sign of a real person.
+  const engage = () => {
+    ["pointerdown", "touchstart", "keydown", "scroll"].forEach((t) => removeEventListener(t, engage, true));
+    track("engage");
+  };
+  ["pointerdown", "touchstart", "keydown", "scroll"].forEach((t) => addEventListener(t, engage, { capture: true, passive: true }));
   addEventListener("pagehide", () => flush(true));
 }
 
@@ -252,6 +261,11 @@ export function currentSource() {
   } catch {
     return "direct";
   }
+}
+
+// Session id for this visit (in-memory one when there's no analytics consent). Lets /go and leads join the visit.
+export function currentSessionId() {
+  return sessionId();
 }
 
 // First and last touch for a lead, from storage (with consent) or from memory (without).

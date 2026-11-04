@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export type RequestKind = "optout" | "delete" | "access" | "correct" | "ncii" | "copyright" | "impersonation" | "underage" | "other";
 
@@ -32,6 +32,7 @@ export default function RequestForm({ kinds, initial }: { kinds: RequestKind[]; 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const shownAt = useRef(Date.now());
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -44,7 +45,7 @@ export default function RequestForm({ kinds, initial }: { kinds: RequestKind[]; 
       const r = await fetch("/api/privacy", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind, ...f, good_faith: goodFaith, website }),
+        body: JSON.stringify({ kind, ...f, good_faith: goodFaith, website, t: Date.now() - shownAt.current }),
       });
       const data = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!r.ok || !data.ok) throw new Error(data.error || "That didn't go through. Try again, or email us.");

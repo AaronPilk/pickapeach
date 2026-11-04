@@ -454,6 +454,7 @@ function Progress({ job, shape }: { job: Job; shape: "photo" | "clip" }) {
 
 function Auth({ onIn }: { onIn: (m: Me) => void }) {
   const [mode, setMode] = useState<"signup" | "login">("signup");
+  const shownAt = useRef(Date.now());
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
@@ -463,7 +464,8 @@ function Auth({ onIn }: { onIn: (m: Me) => void }) {
     setBusy(true);
     setErr("");
     try {
-      const r = await fetch(`/api/creator/${mode}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password: pw }) });
+      const website = ((e.currentTarget as HTMLFormElement).elements.namedItem("website") as HTMLInputElement | null)?.value || "";
+      const r = await fetch(`/api/creator/${mode}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password: pw, website, t: Date.now() - shownAt.current }) });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "Something went wrong.");
       track(mode === "signup" ? "creator_signup" : "creator_login");
@@ -496,6 +498,7 @@ function Auth({ onIn }: { onIn: (m: Me) => void }) {
             <input type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} required minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} placeholder={mode === "signup" ? "8+ characters" : ""} />
           </label>
         </div>
+        <input className="hp" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden />
         {err && <p className="form-error">{err}</p>}
         <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={busy}>{busy ? "One sec…" : mode === "signup" ? "Create account" : "Log in"}</button>
         <p className="t-cap c3" style={{ marginTop: 12, textAlign: "center" }}>Creators must be 18+. Forgot your password? Email us and we&apos;ll reset it.</p>

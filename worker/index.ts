@@ -14,6 +14,7 @@
 // Worker responses get security headers here; static pages get theirs from public/_headers.
 import roster from "../data/creators.json";
 import { SMS_CONSENT_TEXT } from "../src/lib/sms";
+import { botCheck, classify, DISPOSABLE_EMAIL, phoneLooksReal } from "./sources";
 import selfServe from "../data/self-serve.json";
 import { mergeRoster } from "../src/lib/roster";
 
@@ -58,6 +59,7 @@ async function route(req: Request, env: Env, ctx: ExecutionContext, url: URL): P
     if (p === "/api/vip/summary") return await handleSummary(req, env, ctx);
     if (p === "/api/live") return await handleLive(req, env, ctx);
     if (p === "/api/geo") return handleGeo(req, url);
+    if (p === "/api/hp") return await handleTrap(req, env, ctx);
     if (p.startsWith("/m/")) return await serveMedia(req, env, url);
     if (p.startsWith("/api/creator/")) return await handleCreator(req, env, url);
     if (p === "/api/vip") return await handleVip(req, env);
@@ -163,10 +165,10 @@ async function handleTrack(req: Request, env: Env, ctx: ExecutionContext) {
     s,
     v,
     e: events.map(cleanEvent),
-    att: body.ctx ? attribution(body.ctx as Json) : undefined,
+    att: body.ctx ? attribution(body.ctx as Json, req.headers.get("user-agent") || "") : undefined,
     enr: await enrich(req, env, body.ctx as Json | undefined),
   };
-  ctx.waitUntil(rpc(env, "ingest", { p: payload }, clientIp(req)).catch((e) => console.error("ingest", e)));
+  ctx.waitUntil(rpc(env, "ingest", { p: payload }, clientIp(req), req.headers.get("user-agent")).catch((e) => console.error("ingest", e)));
   return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
 }
 
@@ -191,14 +193,16 @@ async function handleGo(req: Request, env: Env, ctx: ExecutionContext, url: URL)
   if (!target || !/^https?:\/\//.test(target)) return Response.redirect(url.origin + "/", 302);
 
   const cookies = parseCookies(req);
-  const isNewSession = !cookies.pp_sid;
-  const s = cookies.pp_sid || crypto.randomUUID();
-  const v = cookies.pp_vid || crypto.randomUUID();
+  // Visitors without analytics cookies pass their in-memory session id (_s) so the click joins the right visit.
+  const anonSid = url.searchParams.get("_s") || "";
+  const s = cookies.pp_sid || (/^[0-9a-f-]{36}$/i.test(anonSid) ? anonSid : "") || crypto.randomUUID();
+  const v = cookies.pp_vid || (anonSid && !cookies.pp_sid ? "anon" : crypto.randomUUID());
+  const isNewSession = !cookies.pp_sid && !anonSid;
   const event = { t: "go", ts: Date.now(), p: str(url.searchParams.get("from"), 300) || "/go", c: slug, m: { s: str(url.searchParams.get("s"), 30) || "link" } };
   const payload: Json = { s, v, e: [event], enr: await enrich(req, env) };
   // Someone landing on /go directly from an ad still gets attributed.
-  if (isNewSession) payload.att = attribution({ lt: { q: Object.fromEntries(url.searchParams), ref: req.headers.get("referer") || "", ref_host: hostOf(req.headers.get("referer")), land: url.pathname } });
-  ctx.waitUntil(rpc(env, "ingest", { p: payload }, clientIp(req)).catch((e) => console.error("go", e)));
+  if (isNewSession) payload.att = attribution({ lt: { q: Object.fromEntries(url.searchParams), ref: req.headers.get("referer") || "", ref_host: hostOf(req.headers.get("referer")), land: url.pathname } }, req.headers.get("user-agent") || "");
+  ctx.waitUntil(rpc(env, "ingest", { p: payload }, clientIp(req), req.headers.get("user-agent")).catch((e) => console.error("go", e)));
 
   return new Response(null, {
     status: 302,
@@ -217,14 +221,19 @@ async function handleLead(req: Request, env: Env, ctx: ExecutionContext) {
     return json({ error: "bad request" }, 400);
   }
   const kind = b.kind === "creator" ? "creator" : "vip";
-  // Honeypot: bots fill hidden fields. Pretend it worked, store nothing.
-  if (str(b.website, 200)) return json({ ok: true });
+  // Bot traps: a hidden field only bots fill in, and forms sent faster than a person can type.
+  // Pretend it worked and store nothing, so the bot learns nothing.
+  const fake = () => json({ ok: true, existing: false, vip: { creators: [] } });
+  if (str(b.website, 200)) return fake();
+  if (typeof b.t === "number" && b.t < 1500) return fake();
+  if (botCheck(req.headers.get("user-agent") || "", "", false)) return fake();
 
   const email = str(b.email, 200).toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) return json({ error: "Enter a valid email." }, 422);
+  if (DISPOSABLE_EMAIL.test(email)) return json({ error: "Please use your real email address." }, 422);
   const phone = normPhone(str(b.phone, 40));
   if (kind === "vip") {
-    if (!phone) return json({ error: "Enter a valid phone number." }, 422);
+    if (!phone || !phoneLooksReal(phone)) return json({ error: "Enter a valid phone number." }, 422);
     if (b.consent !== true) return json({ error: "Tick the box to unlock." }, 422);
   }
   const name = str(b.name, 120);
@@ -232,7 +241,7 @@ async function handleLead(req: Request, env: Env, ctx: ExecutionContext) {
 
   const cookies = parseCookies(req);
   const enr = await enrich(req, env);
-  const att = b.attr ? attribution(b.attr as Json) : ({} as ReturnType<typeof attribution>);
+  const att = b.attr ? attribution(b.attr as Json, req.headers.get("user-agent") || "") : ({} as Partial<ReturnType<typeof attribution>>);
   const extra: Json = {};
   if (kind === "creator") {
     for (const k of ["instagram", "tiktok", "fans", "message"]) if (str(b[k], 500)) extra[k] = str(b[k], 500);
@@ -253,7 +262,9 @@ async function handleLead(req: Request, env: Env, ctx: ExecutionContext) {
       campaign: att.campaign || null,
       query: att.query || null,
       first_touch: att.first_touch || null,
-      session_id: cookies.pp_sid || null,
+      channel: att.channel || null,
+      label: att.label || null,
+      session_id: cookies.pp_sid || str(b.sid, 64) || null,
       visitor_id: cookies.pp_vid || null,
       origin: str(b.origin, 60) || null,
       creator: str(b.creator, 80) || null,
@@ -265,8 +276,9 @@ async function handleLead(req: Request, env: Env, ctx: ExecutionContext) {
       user_agent: str(req.headers.get("user-agent"), 400),
       extra: Object.keys(extra).length ? extra : null,
     },
-  }, clientIp(req))) as { token: string; existing: boolean };
+  }, clientIp(req), req.headers.get("user-agent"))) as { token: string; existing: boolean };
   } catch (e) {
+    if (/"blocked"/.test(String(e))) return fake();
     const msg = rpcMessage(e);
     return json({ error: msg }, /too many/i.test(msg) ? 429 : 422);
   }
@@ -294,11 +306,21 @@ async function handleLead(req: Request, env: Env, ctx: ExecutionContext) {
   return new Response(JSON.stringify({ ok: true, existing: res.existing, vip }), { headers });
 }
 
+// Honeypot link: hidden from people, disallowed in robots.txt, so only bad bots ever request it.
+// Flags the connection for the rest of the day; its visits and form posts are kept out of the numbers.
+async function handleTrap(req: Request, env: Env, ctx: ExecutionContext) {
+  ctx.waitUntil(rpc(env, "flag_bot", { p_reason: "honeypot" }, clientIp(req), req.headers.get("user-agent")).catch(() => {}));
+  return new Response("<!doctype html><title>Not found</title><p>Nothing here.</p>", {
+    status: 404,
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" },
+  });
+}
+
 // Privacy choices + takedown requests. Opt-outs take effect immediately in the database.
 async function handleRequest(req: Request, env: Env, ctx: ExecutionContext) {
   if (Number(req.headers.get("content-length") || 0) > 16_000) return json({ error: "too large" }, 413);
   const b = (await req.json().catch(() => ({}))) as Json;
-  if (str(b.website, 200)) return json({ ok: true });
+  if (str(b.website, 200) || (typeof b.t === "number" && b.t < 1500)) return json({ ok: true });
   const country = ((req.cf as { country?: string } | undefined)?.country || "").slice(0, 8);
   try {
     await rpc(env, "submit_request", {
@@ -446,6 +468,11 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
     for (const acc of res.creator_accounts || []) media += await purgeMedia(env, acc);
     return json({ ok: true, ...res, media_deleted: media }, 200, nostore);
   }
+  if (p === "traffic") {
+    const days = Math.max(1, Math.min(365, Number(url.searchParams.get("days")) || 7));
+    const data = await rpc(env, "admin_traffic", { p_token: tok, p_days: days });
+    return data ? json(data, 200, nostore) : json({ error: "auth" }, 401);
+  }
   if (p === "stats") {
     const days = Math.max(1, Math.min(365, Number(url.searchParams.get("days")) || 7));
     const data = await rpc(env, "admin_stats", { p_token: tok, p_days: days });
@@ -463,7 +490,7 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
     // Only people who agreed to messages, haven't opted out and weren't erased, so the file is safe to import and message.
     const data = (await rpc(env, "admin_leads_export", { p_token: tok })) as Json[] | null;
     if (!data) return json({ error: "auth" }, 401);
-    const cols = ["created_at", "email", "phone", "name", "consent_at", "consent_text", "source", "medium", "campaign", "origin", "creator", "country", "region", "city", "device", "page"];
+    const cols = ["created_at", "email", "phone", "name", "consent_at", "consent_text", "source_label", "channel", "source", "medium", "campaign", "origin", "creator", "country", "region", "city", "device", "page"];
     const esc = (x: unknown) => {
       let s = x == null ? "" : typeof x === "object" ? JSON.stringify(x) : String(x);
       // Stop spreadsheet apps from running anything a visitor typed as a formula.
@@ -490,6 +517,12 @@ async function handleCreator(req: Request, env: Env, url: URL) {
 
   if ((p === "signup" || p === "login") && req.method === "POST") {
     const b = (await req.json().catch(() => ({}))) as Json;
+    if (p === "signup") {
+      const botty = str(b.website, 200) || (typeof b.t === "number" && b.t < 2000) || botCheck(req.headers.get("user-agent") || "", "", false);
+      const trapped = botty ? true : (await rpc(env, "creator_signup_check", {}, clientIp(req), req.headers.get("user-agent")).catch(() => true)) === false;
+      if (botty || trapped) return json({ error: "Something went wrong. Try again in a minute." }, 422, nostore);
+      if (DISPOSABLE_EMAIL.test(str(b.email, 200))) return json({ error: "Please use your real email address." }, 422, nostore);
+    }
     let tok: string | null = null;
     try {
       tok = (await rpc(env, p === "signup" ? "creator_signup" : "creator_login", { p_email: str(b.email, 200), p_password: typeof b.password === "string" ? b.password.slice(0, 200) : "" }, clientIp(req))) as string | null;
@@ -660,12 +693,14 @@ const DEFAULT_SUPABASE_KEY = "sb_publishable_zG7RWc6SzzTIVBRMPXSJ0w_K0tLxwfD";
 
 // `ip` is the visitor's address, passed so the database can rate-limit and hash it with its own secret salt.
 // The raw IP is never stored.
-async function rpc(env: Env, fn: string, args: Json, ip?: string) {
+async function rpc(env: Env, fn: string, args: Json, ip?: string, ua?: string | null) {
   const key = env.SUPABASE_KEY || DEFAULT_SUPABASE_KEY;
   const base = env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
   const headers: Record<string, string> = { apikey: key, "content-type": "application/json" };
   if (!key.startsWith("sb_")) headers.authorization = `Bearer ${key}`;
   if (ip) headers["x-pp-ip"] = ip.slice(0, 64);
+  // The honeypot keys on IP + browser, so one bot on a shared mobile-carrier IP doesn't taint everyone on it.
+  if (ua) headers["x-pp-ua"] = ua.replace(/[^\x20-\x7e]/g, "").slice(0, 300);
   const r = await fetch(`${base}/rest/v1/rpc/${fn}`, { method: "POST", headers, body: JSON.stringify(args) });
   if (!r.ok) throw new Error(`${fn} ${r.status} ${(await r.text()).slice(0, 300)}`);
   const t = await r.text();
@@ -744,7 +779,7 @@ function refSource(host: string) {
   return { source: host, medium: "referral" };
 }
 
-function attribution(ctx: Json) {
+function attribution(ctx: Json, ua = "") {
   const touch = (ctx.lt || {}) as Json;
   const q = ((touch.q || {}) as Record<string, string>) || {};
   const clickKeys: [string, string][] = [["gclid", "google"], ["fbclid", "facebook"], ["ttclid", "tiktok"], ["msclkid", "bing"]];
@@ -761,7 +796,11 @@ function attribution(ctx: Json) {
     const fq = (ft.q || {}) as Record<string, string>;
     first_source = (fq.utm_source || fq.src || fq.source || refSource(String(ft.ref_host || "")).source || "direct").toLowerCase();
   }
+  const cls = classify(q, String(touch.ref || ""), ua);
   return {
+    channel: cls.channel,
+    label: cls.label,
+    ad_network: cls.adNetwork || "",
     source,
     medium,
     campaign: q.utm_campaign || q.campaign || q.campaign_id || q.cid || "",
@@ -777,13 +816,13 @@ function attribution(ctx: Json) {
   };
 }
 
-const BOT = /bot|crawl|spider|slurp|headless|lighthouse|pagespeed|preview|facebookexternalhit|embedly|whatsapp|telegram|discord|curl|wget|python|axios|node-fetch|go-http|java\/|okhttp|monitor|uptime/i;
 
 // IP hashing happens in the database with a secret salt (see private.ip_hash), not here.
 async function enrich(req: Request, _env: Env, c?: Json) {
   const cf = (req.cf || {}) as Record<string, unknown>;
   const ua = req.headers.get("user-agent") || "";
-  const verified = (cf.botManagement as { verifiedBot?: boolean } | undefined)?.verifiedBot;
+  const verified = Boolean((cf.botManagement as { verifiedBot?: boolean } | undefined)?.verifiedBot);
+  const why = botCheck(ua, (cf.asOrganization as string) || "", verified, c as { wd?: unknown; hl?: unknown; sw?: unknown; sh?: unknown } | undefined);
   return {
     country: (cf.country as string) || "",
     region: (cf.region as string) || "",
@@ -793,7 +832,8 @@ async function enrich(req: Request, _env: Env, c?: Json) {
     asn_org: (cf.asOrganization as string) || "",
     colo: (cf.colo as string) || "",
     ...device(ua),
-    is_bot: Boolean(verified) || BOT.test(ua) || !ua,
+    is_bot: Boolean(why),
+    bot_reason: why || undefined,
     screen: c ? `${c.sw}x${c.sh}@${c.dpr}` : undefined,
     lang: c ? str(c.lang, 20) : undefined,
     net: c ? str(c.net, 10) : undefined,

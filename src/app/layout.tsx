@@ -47,6 +47,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <JsonLd data={siteGraph()} />
       </head>
       <body>
+        {/* Bot trap: invisible to people and screen readers, blocked in robots.txt. Anything that follows it gets flagged. */}
+        <a href="/api/hp" className="hp-link" rel="nofollow noindex" tabIndex={-1} aria-hidden="true">Partner directory</a>
         <Ambient />
         <Header />
         <main>{children}</main>
