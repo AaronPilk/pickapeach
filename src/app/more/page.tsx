@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import MemberProfile from "@/components/MemberProfile";
 import { Footer } from "@/components/Static";
 
-export const metadata: Metadata = { title: "Members", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Unlocked", robots: { index: false, follow: false } };
 
 export default function MorePage() {
   return (

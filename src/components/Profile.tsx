@@ -41,7 +41,7 @@ export function ProfileBody({ c, related, regionHref }: { c: Creator; related: C
               </div>
               <div className="p-meta">
                 {c.free && <span className="free-tag">Free page</span>}
-                {c.locked && <span className="free-tag">Members only</span>}
+                {c.locked && <span className="free-tag">Unlocked</span>}
                 {c.location && <span>{c.location}</span>}
                 {c.location && c.handle && <span className="dot" aria-hidden />}
                 {c.handle && <span>@{c.handle}</span>}

@@ -7,7 +7,7 @@ import { Lock, ChevronLeft } from "./Icons";
 import { toCard } from "@/lib/card";
 import { openGate, useVip } from "@/lib/vip";
 
-// Members-only girls aren't in the static build, so their profile renders on the client
+// Hidden girls aren't in the static build, so their profile renders on the client
 // from /api/vip once the visitor has unlocked.
 export default function MemberProfile() {
   const vip = useVip();
@@ -31,14 +31,14 @@ export default function MemberProfile() {
         <div>
           <h1 className="t-title1">She&apos;s not here anymore</h1>
           <p className="c2" style={{ marginTop: 8 }}>This profile was taken down. Plenty of others weren&apos;t.</p>
-          <Link href="/vip" className="btn btn-primary" style={{ marginTop: 20 }}>See all members</Link>
+          <Link href="/vip" className="btn btn-primary" style={{ marginTop: 20 }}>See all unlocked girls</Link>
         </div>
       ) : (
         <div style={{ maxWidth: 360 }}>
           <div className="unlock-hero">
             <div className="ico"><Lock /></div>
-            <h1 className="t-title1">Members only</h1>
-            <p>This girl is only visible to members. Unlock free with your email and number.</p>
+            <h1 className="t-title1">She&apos;s hidden</h1>
+            <p>This girl only shows up after you unlock. It&apos;s free with your email and number.</p>
           </div>
           <button className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={() => openGate("member_profile", slug || undefined)}>
             Unlock free

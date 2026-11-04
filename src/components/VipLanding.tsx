@@ -7,8 +7,8 @@ import { Lock, Sparkle } from "./Icons";
 import { toCard } from "@/lib/card";
 import { openGate, useVip } from "@/lib/vip";
 
-// /vip: the members area. Locked → the unlock pitch (also a clean landing page for ads: /vip?open=1).
-// Unlocked → every members-only girl.
+// /vip: the hidden girls. Locked → the unlock pitch (also a clean landing page for ads: /vip?open=1).
+// Unlocked → every hidden girl. Never lists other visitors.
 export default function VipLanding() {
   const vip = useVip();
   const count = vip.summary?.count ?? 0;
@@ -23,12 +23,12 @@ export default function VipLanding() {
     return (
       <>
         <header className="page-head">
-          <h1 className="t-large">Members</h1>
-          <p className="lede">{cards.length ? `${cards.length} girls you only see as a member.` : "Loading members…"}</p>
+          <h1 className="t-large">Unlocked girls</h1>
+          <p className="lede">{cards.length ? `${cards.length} girls you only see after unlocking.` : "Loading…"}</p>
         </header>
         <div className="grid grid-wide" style={{ marginTop: 14 }}>
           {cards.map((c, i) => (
-            <CreatorCard key={c.slug} c={c} index={i} list="members" eager={i < 2} />
+            <CreatorCard key={c.slug} c={c} index={i} list="unlocked" eager={i < 2} />
           ))}
         </div>
       </>
@@ -41,7 +41,7 @@ export default function VipLanding() {
         <div className="unlock-hero">
           <div className="ico"><Lock /></div>
           <h1 className="t-title1">{count ? `${count} more girls` : "More girls"}</h1>
-          <p>The rest of the roster is members-only. Unlock with your email and number, free.</p>
+          <p>The rest of the roster is hidden. Unlock with your email and number, free.</p>
         </div>
         <button className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={() => openGate("vip_page")}>
           <Sparkle /> Unlock free

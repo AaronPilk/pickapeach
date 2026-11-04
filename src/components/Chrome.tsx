@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Clips, Home, Lock, Moon, Peach, Search, Sparkle, Sun, Users } from "./Icons";
+import { Clips, Home, Lock, Moon, Peach, Search, Sparkle, Sun } from "./Icons";
 import { bootVip, openGate, useVip } from "@/lib/vip";
 import { track } from "@/lib/track";
 
@@ -134,7 +134,7 @@ export function Header() {
           <ThemeToggle />
           {vip.unlocked ? (
             <Link href="/vip" className="btn btn-sm btn-tinted only-desktop">
-              <Sparkle /> Members
+              <Sparkle /> Unlocked girls
             </Link>
           ) : (
             <button className="btn btn-sm btn-primary only-desktop" onClick={() => openGate("header")}>
@@ -185,8 +185,8 @@ export function Dock() {
       </Link>
       {vip.unlocked ? (
         <Link href="/vip" aria-current={path === "/vip" ? "page" : undefined}>
-          <Users />
-          Members
+          <Sparkle />
+          Unlocked
         </Link>
       ) : (
         <button onClick={() => openGate("dock")}>

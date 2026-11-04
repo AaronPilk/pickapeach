@@ -86,7 +86,7 @@ export default function UnlockSheet() {
   const n = vip.content?.creators.length || count;
 
   return (
-    <Sheet open={vip.open} onClose={close} label="Unlock members-only creators" hideHead>
+    <Sheet open={vip.open} onClose={close} label="Unlock the hidden creators" hideHead>
       {done ? (
         <div className="success">
           <div className="tick">
@@ -94,10 +94,10 @@ export default function UnlockSheet() {
           </div>
           <h2 className="t-title2">You&apos;re in</h2>
           <p className="c2 t-sub" style={{ marginTop: 6 }}>
-            {n ? `All ${n} members-only girls are unlocked on this device.` : "Members-only girls are unlocked on this device."}
+            {n ? `All ${n} hidden girls are unlocked on this device.` : "The hidden girls are unlocked on this device."}
           </p>
           <Link href="/vip" className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={() => closeGate()}>
-            See the members
+            See them now
           </Link>
           <button className="btn btn-plain btn-block" onClick={() => closeGate()}>
             Keep browsing
@@ -110,7 +110,7 @@ export default function UnlockSheet() {
               <Lock />
             </div>
             <h2>{count ? `See ${count} more girls` : "See everyone"}</h2>
-            <p>Some of our creators are members-only. Add your email and number once and they&apos;re unlocked. Free.</p>
+            <p>Some of our creators are hidden. Add your email and number once to see all of them. It&apos;s free, and only we see your details.</p>
           </div>
           <div className="form-card">
             <label data-invalid={touched && !emailOk}>

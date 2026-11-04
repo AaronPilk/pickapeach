@@ -18,8 +18,8 @@ export default function MembersTeaser({ art }: { art: string[] }) {
             <span className="ico" style={{ margin: 0, width: 48, height: 48 }}><Sparkle /></span>
           </span>
           <span style={{ flex: 1 }}>
-            <span className="t-headline" style={{ display: "block" }}>You&apos;re a member</span>
-            <span className="t-foot c2">All {count} members-only girls are unlocked</span>
+            <span className="t-headline" style={{ display: "block" }}>Everyone&apos;s unlocked</span>
+            <span className="t-foot c2">See the {count} girls that were hidden</span>
           </span>
           <ChevronRight style={{ width: 18, height: 18, color: "var(--label-3)" }} />
         </Link>
@@ -30,7 +30,7 @@ export default function MembersTeaser({ art }: { art: string[] }) {
   return (
     <section className="section" aria-labelledby="members-h">
       <div className="members cell">
-        <h2 id="members-h" className="t-title2">{count} more girls are members-only</h2>
+        <h2 id="members-h" className="t-title2">{count} more girls are hidden</h2>
         <p className="t-sub c2 section-sub">Add your email and number once to see everyone. It&apos;s free.</p>
         <div className="members-row" aria-hidden>
           {art.slice(0, 4).map((a, i) => (

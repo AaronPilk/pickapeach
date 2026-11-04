@@ -131,7 +131,7 @@ export const FAQS = [
   },
   {
     q: "What is VIP?",
-    a: "VIP is a free members area. Enter your email and mobile number once and you get extra photos and clips on every profile, plus creators we only show to members.",
+    a: "VIP is free. Some creators are hidden, and entering your email and mobile number once unlocks all of them on your device. Your details are only seen by our team and never shown on the site.",
   },
   {
     q: "What do you do with my email and phone number?",

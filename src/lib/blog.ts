@@ -220,13 +220,13 @@ const guides: Omit<Post, "readMins" | "kind">[] = [
         id: "on-our-site",
         h: "What Pick a Peach collects",
         body: [
-          "Browsing Pick a Peach doesn't require an account. If you unlock the members-only creators, we ask for an email and mobile number and only message you if you agreed to it. You can reply STOP to any text. Our privacy policy explains exactly what we store.",
+          "Browsing Pick a Peach doesn't require an account. If you unlock the hidden creators, we ask for an email and mobile number and only message you if you agreed to it. You can reply STOP to any text. Our privacy policy explains exactly what we store.",
         ],
       },
     ],
     faqs: [
       { q: "Can creators see my real name?", a: "Creators see your display name and username, not your legal name, so use names that don't identify you." },
-      { q: "Does Pick a Peach need an account?", a: "No. Browsing is open. Unlocking members-only creators needs an email and mobile number, nothing else." },
+      { q: "Does Pick a Peach need an account?", a: "No. Browsing is open. Unlocking the hidden creators needs an email and mobile number, nothing else." },
     ],
   },
   {
@@ -383,11 +383,11 @@ const guides: Omit<Post, "readMins" | "kind">[] = [
   {
     slug: "how-pick-a-peach-works",
     title: "What is Pick a Peach and how do we choose creators?",
-    description: "Pick a Peach is a hand-picked directory of independent adult creators. Here's how the site works, how creators are chosen, and what members-only means.",
+    description: "Pick a Peach is a hand-picked directory of independent adult creators. Here's how the site works, how creators are chosen, and why some creators are hidden.",
     dek: "A short list, picked by people. Here's how it works.",
     published: "2026-11-04",
     updated: "2026-11-04",
-    tldr: "Pick a Peach is a free directory of independent adult creators, all 18+ and listed with their permission. Each profile has photos, short clips, social links and a button to the creator's official page. Some creators are members-only and unlock with an email and mobile number.",
+    tldr: "Pick a Peach is a free directory of independent adult creators, all 18+ and listed with their permission. Each profile has photos, short clips, social links and a button to the creator's official page. Some creators are hidden and unlock with an email and mobile number.",
     keywords: ["pick a peach", "creator directory", "onlyfans directory", "about pick a peach"],
     sections: [
       {
@@ -406,9 +406,9 @@ const guides: Omit<Post, "readMins" | "kind">[] = [
       },
       {
         id: "members",
-        h: "What does members-only mean?",
+        h: "Why are some creators hidden?",
         body: [
-          "Some creators are only visible to members. Membership is free: add your email and mobile number once and every members-only creator unlocks on your device. If you opt in, we'll message you when new creators join. Reply STOP any time.",
+          "Some creators are hidden until you unlock them. It's free: add your email and mobile number once and every hidden creator shows up on your device. Only our team sees your details. If you opt in, we'll message you when new creators join. Reply STOP any time.",
         ],
       },
       {

@@ -100,7 +100,7 @@ export default function CreatorCard({ c, index = 0, list = "grid", eager = false
         <div className="card-title">
           {c.name}
           {c.age ? <span className="age">{c.age}</span> : null}
-          {c.locked ? <Sparkle aria-label="Members only" /> : null}
+          {c.locked ? <Sparkle aria-label="Unlocked" /> : null}
         </div>
         <div className="card-sub">{sub}</div>
       </div>
@@ -111,7 +111,7 @@ export default function CreatorCard({ c, index = 0, list = "grid", eager = false
 // Same footprint as a creator card, so it sits naturally in the grid.
 export function LockedCard({ index = 0, count, art }: { index?: number; count: number; art?: string }) {
   return (
-    <button className="card card-lock reveal" style={{ ["--i" as string]: index % 8 }} onClick={() => openGate("grid_card")} aria-label="Unlock members-only creators">
+    <button className="card card-lock reveal" style={{ ["--i" as string]: index % 8 }} onClick={() => openGate("grid_card")} aria-label="Unlock the hidden creators">
       <div className="card-media">
         <div className="blur-art" style={{ backgroundImage: `url(${art || "/media/ui/vip-blur-1.svg"})` }} />
         <div className="lock-badge">
@@ -119,7 +119,7 @@ export function LockedCard({ index = 0, count, art }: { index?: number; count: n
             <Lock />
           </span>
           <b>{count > 0 ? `+${count}` : "More"}</b>
-          <span>{count > 0 ? "members-only girls" : "girls for members"}</span>
+          <span>{count > 0 ? "more girls, hidden" : "hidden girls"}</span>
         </div>
       </div>
       <div className="card-body">

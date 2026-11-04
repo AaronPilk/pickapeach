@@ -4,7 +4,7 @@ import { pageMeta } from "@/lib/seo";
 
 export const metadata = pageMeta({
   title: "VIP",
-  description: "Unlock Pick a Peach VIP free: extra photos and clips from every creator, plus members-only creators.",
+  description: "Unlock every creator on Pick a Peach, including the hidden ones. Free with your email and number.",
   path: "/vip",
 });
 

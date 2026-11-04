@@ -28,7 +28,7 @@ export default function AboutPage() {
           </p>
           <h2>VIP</h2>
           <p>
-            VIP is our free members area. Add your email and mobile number once and you get extra photos and clips on every profile. You can opt out of messages any time. See the <Link href="/privacy">Privacy Policy</Link> for exactly what we collect.
+            Some creators are hidden until you unlock them. Add your email and mobile number once and you can see everyone. Only our team ever sees your details, and you can opt out of messages any time. See the <Link href="/privacy">Privacy Policy</Link> for exactly what we collect.
           </p>
           <h2>Creators</h2>
           <p>
