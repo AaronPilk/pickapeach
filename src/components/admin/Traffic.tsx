@@ -126,19 +126,19 @@ export default function Traffic({ data, initialChannel = "all" }: { data: Traffi
         note="Tag every ad link with utm_source, utm_campaign and utm_content (the ad) so each one shows here on its own row."
       >
         {!data.campaigns.length ? (
-          <Empty>No ad campaigns yet. Use links like www.pickapeach.com/?utm_source=trafficjunky&amp;utm_medium=cpm&amp;utm_campaign=&#123;CampaignID&#125;&amp;utm_content=&#123;SpotID&#125;</Empty>
+          <Empty>No ad campaigns yet. Use links like www.pickapeach.com/?utm_source=trafficjunky&amp;utm_medium=cpm&amp;utm_campaign=&#123;CampaignID&#125;&amp;utm_content=&#123;AdID&#125;&amp;utm_term=&#123;SiteName&#125;</Empty>
         ) : (
           <div className="g-table-wrap">
             <table className="g-table">
               <thead>
-                <tr><th>Ad source</th><th>Campaign</th><th>Ad / spot</th><th>Visitors</th><th>Engaged</th><th>Follow clicks</th><th>Unlocks</th></tr>
+                <tr><th>Ad source</th><th>Campaign</th><th>Ad · site</th><th>Visitors</th><th>Engaged</th><th>Follow clicks</th><th>Unlocks</th></tr>
               </thead>
               <tbody>
                 {data.campaigns.map((c, i) => (
                   <tr key={i}>
                     <td><b>{c.label}</b></td>
                     <td data-l="Campaign">{c.campaign || "—"}</td>
-                    <td data-l="Ad / spot">{[c.content, c.term].filter(Boolean).join(" · ") || "—"}</td>
+                    <td data-l="Ad · site">{[c.content, c.term].filter(Boolean).join(" · ") || "—"}</td>
                     <td data-l="Visitors">{fmt(c.visitors)}</td>
                     <td data-l="Engaged"><Meter v={pct(c.engaged, c.sessions)} /></td>
                     <td data-l="Follow clicks">{fmt(c.clicks)}</td>

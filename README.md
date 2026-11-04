@@ -72,7 +72,7 @@ Every visit stores the traffic source on the session (UTM tags, ad click IDs, re
 Tag every ad link. Traffic Junky example (their macros fill in the braces):
 
 ```
-https://www.pickapeach.com/?utm_source=trafficjunky&utm_medium=cpm&utm_campaign={CampaignID}&utm_content={SpotID}&utm_term={SiteID}
+https://www.pickapeach.com/?utm_source=trafficjunky&utm_medium=cpm&utm_campaign={CampaignID}&utm_content={AdID}&utm_term={SiteName}
 ```
 
 Any extra query params are kept too, so you can add `sub1`, `zone_id`, etc.
