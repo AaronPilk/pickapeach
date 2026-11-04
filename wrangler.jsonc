@@ -11,8 +11,8 @@
   // Creator photo + video uploads.
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "pickapeach-media" }]
   // Secrets (Pages → Settings → Variables and secrets, type "Secret"):
-  //   SUPABASE_KEY       Supabase secret key (sb_secret_...). Until it's set the Worker uses the public key built into
-  //                      worker/index.ts. See README → Security.
+  //   SUPABASE_KEY       Supabase secret key (sb_secret_...), set for Production and Preview on 2026-11-04. Without it
+  //                      the Worker falls back to the public key in worker/index.ts. See README → Security.
   //   LEAD_WEBHOOK_URL   GoHighLevel / Zapier webhook that gets every new lead and every opt-out
   //   ALERT_WEBHOOK_URL  webhook pinged when a takedown or privacy request arrives (urgent ones flagged)
 }
