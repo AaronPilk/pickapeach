@@ -371,8 +371,11 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
   const p = url.pathname.replace("/api/admin/", "");
   if (p === "login" && req.method === "POST") {
     const b = (await req.json().catch(() => ({}))) as Json;
-    const tok = (await rpc(env, "admin_login", { p_password: typeof b.password === "string" ? b.password.slice(0, 200) : "" }, clientIp(req))) as string | null;
-    if (!tok) return json({ error: "Wrong password, or too many tries. Wait 15 minutes." }, 401);
+    const email = str(b.email, 200);
+    if (!email) return json({ error: "Enter your email and password." }, 400);
+    // Each owner has their own email + password login (private.admin_users).
+    const tok = (await rpc(env, "owner_login", { p_email: email, p_password: typeof b.password === "string" ? b.password.slice(0, 200) : "" }, clientIp(req))) as string | null;
+    if (!tok) return json({ error: "Wrong email or password, or too many tries. Wait 15 minutes." }, 401);
     return json({ ok: true }, 200, { "set-cookie": `pp_admin=${tok}; Path=/api/admin; Max-Age=1209600; HttpOnly; Secure; SameSite=Strict` });
   }
   if (p === "logout") return json({ ok: true }, 200, { "set-cookie": "pp_admin=; Path=/api/admin; Max-Age=0; HttpOnly; Secure; SameSite=Strict" });
@@ -381,6 +384,36 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
   if (!tok || !/^[0-9a-f-]{36}$/i.test(tok)) return json({ error: "auth" }, 401);
   const nostore = { "cache-control": "no-store" };
 
+  if (p === "me") {
+    const data = await rpc(env, "owner_me", { p_token: tok });
+    return data ? json(data, 200, nostore) : json({ error: "auth" }, 401);
+  }
+  if (p === "password" && req.method === "POST") {
+    const b = (await req.json().catch(() => ({}))) as Json;
+    try {
+      await rpc(env, "owner_change_password", { p_token: tok, p_current: typeof b.current === "string" ? b.current.slice(0, 200) : "", p_new: typeof b.next === "string" ? b.next.slice(0, 200) : "" });
+    } catch (e) {
+      return json({ error: rpcMessage(e) }, 422, nostore);
+    }
+    return json({ ok: true }, 200, nostore);
+  }
+  if (p === "team") {
+    const data = await rpc(env, "owner_list", { p_token: tok });
+    return data ? json(data, 200, nostore) : json({ error: "auth" }, 401);
+  }
+  if ((p === "team/add" || p === "team/remove") && req.method === "POST") {
+    const b = (await req.json().catch(() => ({}))) as Json;
+    try {
+      if (p === "team/add") {
+        await rpc(env, "owner_add", { p_token: tok, p_email: str(b.email, 200), p_name: str(b.name, 60), p_password: typeof b.password === "string" ? b.password.slice(0, 200) : "" });
+      } else {
+        await rpc(env, "owner_remove", { p_token: tok, p_id: str(b.id, 64) });
+      }
+    } catch (e) {
+      return json({ error: rpcMessage(e) }, 422, nostore);
+    }
+    return json({ ok: true }, 200, nostore);
+  }
   if (p === "creators") {
     const data = await rpc(env, "admin_creators", { p_token: tok });
     return data ? json(data, 200, nostore) : json({ error: "auth" }, 401);

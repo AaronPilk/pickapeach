@@ -49,7 +49,8 @@ export function Footer() {
             <ul>
               <li><Link href="/about">About</Link></li>
               <li><Link href="/faq">FAQ</Link></li>
-              <li><Link href="/creator">Creators: get listed</Link></li>
+              <li><Link href="/apply">Creators: get listed</Link></li>
+              <li><Link href="/creator">Creator login</Link></li>
               <li><Link href="/content-removal">Report content</Link></li>
               <li><a href={`mailto:${site.contactEmail}`}>Contact</a></li>
             </ul>

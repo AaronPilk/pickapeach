@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Logo } from "./Chrome";
 import Approvals from "./Approvals";
 import Requests from "./Requests";
+import Account from "./Account";
 
 type Row = Record<string, string | number | null>;
 type Stats = {
@@ -24,12 +25,14 @@ const RANGES = [1, 7, 30, 90];
 export default function AdminDashboard() {
   const [auth, setAuth] = useState<"checking" | "out" | "in">("checking");
   const [pw, setPw] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [days, setDays] = useState(7);
   const [stats, setStats] = useState<Stats | null>(null);
   const [recent, setRecent] = useState<Row[]>([]);
   const [leads, setLeads] = useState<Row[]>([]);
-  const [tab, setTab] = useState<"overview" | "creators" | "approvals" | "requests" | "leads" | "live">("overview");
+  const [tab, setTab] = useState<"overview" | "creators" | "approvals" | "requests" | "leads" | "live" | "account">("overview");
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async (d: number) => {
@@ -77,20 +80,28 @@ export default function AdminDashboard() {
           onSubmit={async (e) => {
             e.preventDefault();
             setErr("");
-            const r = await fetch("/api/admin/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password: pw }) });
-            if (r.ok) load(days);
-            else setErr((await r.json().catch(() => ({}))).error || "Wrong password.");
+            setBusy(true);
+            const r = await fetch("/api/admin/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password: pw }) });
+            setBusy(false);
+            if (r.ok) {
+              setPw("");
+              load(days);
+            } else setErr((await r.json().catch(() => ({}))).error || "Wrong email or password.");
           }}
         >
           <Logo />
-          <h2 style={{ marginTop: 18 }}>Dashboard</h2>
+          <h2 style={{ marginTop: 18 }}>Owner sign in</h2>
+          <label className="field">
+            <span>Email</span>
+            <input className="input" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus autoComplete="username" />
+          </label>
           <label className="field">
             <span>Password</span>
-            <input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus autoComplete="current-password" />
+            <input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" />
           </label>
           {err && <p className="form-error">{err}</p>}
-          <button className="btn btn-coral btn-block" style={{ marginTop: 14 }} disabled={auth === "checking"}>
-            {auth === "checking" ? "Checking…" : "Sign in"}
+          <button className="btn btn-coral btn-block" style={{ marginTop: 14 }} disabled={auth === "checking" || busy}>
+            {auth === "checking" ? "Checking…" : busy ? "Signing in…" : "Sign in"}
           </button>
         </form>
       </div>
@@ -119,9 +130,9 @@ export default function AdminDashboard() {
       </div>
 
       <div className="chips" style={{ marginTop: 6 }}>
-        {(["overview", "creators", "approvals", "requests", "leads", "live"] as const).map((x) => (
+        {(["overview", "creators", "approvals", "requests", "leads", "live", "account"] as const).map((x) => (
           <button key={x} className="chip" aria-pressed={tab === x} onClick={() => setTab(x)}>
-            {x === "live" ? "Live feed" : x === "creators" ? "Creator stats" : x === "approvals" ? "Approvals" : x === "requests" ? "Requests" : x[0].toUpperCase() + x.slice(1)}
+            {x === "live" ? "Live feed" : x === "creators" ? "Creator stats" : x === "approvals" ? "Approvals" : x === "requests" ? "Requests" : x === "account" ? "Account" : x[0].toUpperCase() + x.slice(1)}
           </button>
         ))}
       </div>
@@ -201,6 +212,8 @@ export default function AdminDashboard() {
       {tab === "approvals" && <Approvals />}
 
       {tab === "requests" && <Requests />}
+
+      {tab === "account" && <Account onSignOut={() => { setAuth("out"); setTab("overview"); }} />}
 
       {tab === "live" && (
         <Card title="Live feed" note="Latest 80 actions, refreshes every 5 seconds.">

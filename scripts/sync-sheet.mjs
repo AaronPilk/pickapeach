@@ -9,7 +9,7 @@
 //   fans_url | free | badge | featured | added | active | tier
 // tier: "agency" (default, shown to everyone) or "locked" (members-only, unlocked with email + phone).
 // Locked girls never go in the public repo: they're pushed to Supabase. That needs the dashboard
-// password:  ADMIN_PASSWORD=... SHEET_CSV_URL=... npm run sync:sheet
+// password:  ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=... SHEET_CSV_URL=... npm run sync:sheet
 //   instagram | tiktok | x | snapchat | reddit | threads | youtube | telegram
 //   photos | clips | clip_posters
 // Lists (tags, photos, clips, clip_posters) can be separated by commas, pipes or new lines.
@@ -113,7 +113,10 @@ if (locked.length) {
       if (!r.ok) throw new Error(`${fn}: ${r.status} ${await r.text()}`);
       return r.json();
     };
-    const token = await call("admin_login", { p_password: password });
+    // Owner email + password (Dashboard → Account). Falls back to the old shared password if no email is given.
+    const token = process.env.ADMIN_EMAIL
+      ? await call("owner_login", { p_email: process.env.ADMIN_EMAIL, p_password: password })
+      : await call("admin_login", { p_password: password });
     if (!token) throw new Error("Wrong dashboard password.");
     const n = await call("admin_upsert_locked", { p_token: token, p_rows: locked, p_replace: true });
     console.log(`pushed ${n} members-only girls to Supabase (live within 5 minutes, no redeploy needed)`);

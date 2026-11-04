@@ -23,7 +23,7 @@ Creator directory built for paid traffic. Mobile first, light (cream) and dark (
 2. Share the sheet as "Anyone with the link can view", then:
 
    ```bash
-   ADMIN_PASSWORD="<dashboard password>" SHEET_CSV_URL="https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=csv&gid=0" npm run sync:sheet
+   ADMIN_EMAIL="<your owner email>" ADMIN_PASSWORD="<your owner password>" SHEET_CSV_URL="https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=csv&gid=0" npm run sync:sheet
    git commit -am "Update roster" && git push   # Cloudflare Pages rebuilds automatically
    ```
 
@@ -101,10 +101,12 @@ Conversion pixels: set `NEXT_PUBLIC_PIXEL_FOLLOW` / `NEXT_PUBLIC_PIXEL_LEAD` (sp
 
 ## Dashboard
 
-`/admin`: approvals, privacy/takedown requests, visitors, sessions, clicks, leads by day, by source, by campaign, by creator, countries, devices, landing pages, every event type, live feed, lead CSV export. Change the password in the Supabase SQL editor:
+`/admin`: approvals, privacy/takedown requests, visitors, sessions, clicks, leads by day, by source, by campaign, by creator, countries, devices, landing pages, every event type, live feed, lead CSV export.
+
+Each owner signs in with their own email and password. In **Account** you can change your password (signs out your other devices) and add or remove other owner logins. Logins lock for 15 minutes after 8 wrong tries from one connection. Passwords are stored as bcrypt hashes in `private.admin_users`; to reset a forgotten one, run in the Supabase SQL editor:
 
 ```sql
-select private.set_admin_password('new-password');
+update private.admin_users set password_hash = extensions.crypt('new-password-here', extensions.gen_salt('bf', 12)) where lower(email) = 'owner@example.com';
 ```
 
 ## Deploy
