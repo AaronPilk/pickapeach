@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import Sheet from "./Sheet";
-import { Check, Clips, Lock, Sparkle, Bolt } from "./Icons";
+import { Check, Lock } from "./Icons";
 import { closeGate, markUnlocked, useVip } from "@/lib/vip";
 import { track } from "@/lib/track";
 import type { VipContent } from "@/lib/types";
@@ -31,6 +31,7 @@ export default function UnlockSheet() {
   const [done, setDone] = useState(false);
   const [touched, setTouched] = useState(false);
   const submitted = useRef(false);
+  const count = vip.summary?.count ?? 0;
 
   useEffect(() => {
     if (vip.open) {
@@ -73,7 +74,6 @@ export default function UnlockSheet() {
       track("lead_success", { c: vip.creator, m: { o: vip.origin, existing: !!data.existing } });
       markUnlocked(data.vip || null);
       setDone(true);
-      setTimeout(() => closeGate(), 1600);
     } catch (err) {
       submitted.current = false;
       setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
@@ -83,77 +83,59 @@ export default function UnlockSheet() {
     }
   };
 
+  const n = vip.content?.creators.length || count;
+
   return (
-    <Sheet open={vip.open} onClose={close} label="Unlock VIP" hideHead>
+    <Sheet open={vip.open} onClose={close} label="Unlock members-only creators" hideHead>
       {done ? (
         <div className="success">
           <div className="tick">
             <Check />
           </div>
-          <h2>You&apos;re in.</h2>
-          <p className="muted" style={{ marginTop: 8 }}>
-            VIP is unlocked on this device. Look for the coral sparkle on every profile.
+          <h2 className="t-title2">You&apos;re in</h2>
+          <p className="c2 t-sub" style={{ marginTop: 6 }}>
+            {n ? `All ${n} members-only girls are unlocked on this device.` : "Members-only girls are unlocked on this device."}
           </p>
-          <button className="btn btn-glass btn-block" style={{ marginTop: 20 }} onClick={() => closeGate()}>
-            Start browsing
+          <Link href="/vip" className="btn btn-primary btn-block" style={{ marginTop: 20 }} onClick={() => closeGate()}>
+            See the members
+          </Link>
+          <button className="btn btn-plain btn-block" onClick={() => closeGate()}>
+            Keep browsing
           </button>
         </div>
       ) : (
         <form onSubmit={submit} noValidate>
           <div className="unlock-hero">
-            <div className="lock-ico">
+            <div className="ico">
               <Lock />
             </div>
-            <h2>Unlock VIP, free</h2>
-            <p>Extra photos and clips from every creator. Takes 10 seconds.</p>
+            <h2>{count ? `See ${count} more girls` : "See everyone"}</h2>
+            <p>Some of our creators are members-only. Add your email and number once and they&apos;re unlocked. Free.</p>
           </div>
-          <div className="perks-row">
-            <span><Sparkle /> VIP photos</span>
-            <span><Clips /> Members-only clips</span>
-            <span><Bolt /> New girls first</span>
+          <div className="form-card">
+            <label data-invalid={touched && !emailOk}>
+              <span>Email</span>
+              <input type="email" inputMode="email" autoComplete="email" placeholder="you@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </label>
+            <label data-invalid={touched && !phoneOk(phone)}>
+              <span>Mobile</span>
+              <input type="tel" inputMode="tel" autoComplete="tel" placeholder="(555) 123-4567" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} required />
+            </label>
           </div>
-          <label className="field">
-            <span>Email</span>
-            <input
-              className="input"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              placeholder="you@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-invalid={touched && !emailOk}
-              required
-            />
-          </label>
-          <label className="field">
-            <span>Mobile number</span>
-            <input
-              className="input"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="(555) 123-4567"
-              value={phone}
-              onChange={(e) => setPhone(formatPhone(e.target.value))}
-              aria-invalid={touched && !phoneOk(phone)}
-              required
-            />
-          </label>
           <input className="hp" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden />
           <label className="check">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} aria-invalid={touched && !consent} />
             <span>
-              I&apos;m 18+ and I agree to get emails and texts from Pick a Peach about new creators and drops. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help. See our{" "}
-              <Link href="/privacy" onClick={() => closeGate()}>Privacy Policy</Link> and <Link href="/terms" onClick={() => closeGate()}>Terms</Link>.
+              I&apos;m 18+ and agree to get emails and texts from Pick a Peach about new creators. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help.{" "}
+              <Link href="/privacy" onClick={() => closeGate()}>Privacy</Link> · <Link href="/terms" onClick={() => closeGate()}>Terms</Link>
             </span>
           </label>
           {error && <p className="form-error" role="alert">{error}</p>}
-          {touched && !valid && !error && <p className="form-error">Add a valid email, mobile number and tick the box.</p>}
-          <button className="btn btn-coral btn-block" style={{ marginTop: 16 }} disabled={busy} type="submit">
-            {busy ? "Unlocking…" : "Unlock now"}
+          {touched && !valid && !error && <p className="form-error">Add a valid email and mobile number, and tick the box.</p>}
+          <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={busy} type="submit">
+            {busy ? "Unlocking…" : "Unlock free"}
           </button>
-          <button type="button" className="btn btn-block" style={{ marginTop: 4, color: "var(--text-3)" }} onClick={close}>
+          <button type="button" className="btn btn-plain btn-block" onClick={close}>
             Not now
           </button>
         </form>

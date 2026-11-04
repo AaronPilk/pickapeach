@@ -42,7 +42,7 @@ export default function AgeGate() {
     document.cookie = `pp_age=1; Path=/; Max-Age=${30 * 86400}; SameSite=Lax`;
     track("age_gate_pass");
     setLeaving(true);
-    setTimeout(() => setShow(false), 240);
+    setTimeout(() => setShow(false), 200);
   };
 
   return (
@@ -55,20 +55,15 @@ export default function AgeGate() {
           </span>
         </div>
         <div className="eighteen">18+</div>
-        <h2 id="age-title">Adults only</h2>
-        <p>This site lists adult creators. Confirm you&apos;re 18 or older (or the age of majority where you live) to keep going.</p>
-        <button className="btn btn-coral btn-block" onClick={enter} autoFocus>
-          I&apos;m 18 or older
+        <h2 id="age-title">Are you 18 or older?</h2>
+        <p>This site lists adult creators. You need to be 18, or the age of majority where you live, to continue.</p>
+        <button className="btn btn-primary btn-block" onClick={enter} autoFocus>
+          Yes, I&apos;m 18 or older
         </button>
-        <a
-          className="btn btn-glass btn-block"
-          href="https://www.google.com"
-          onClick={() => track("age_gate_leave")}
-          rel="nofollow noopener"
-        >
-          Take me out
+        <a className="btn btn-plain btn-block" href="https://www.google.com" onClick={() => track("age_gate_leave")} rel="nofollow noopener">
+          No, take me out
         </a>
-        <p className="fine">By entering you agree to our Terms and Privacy Policy.</p>
+        <p className="fine">By continuing you agree to our Terms and Privacy Policy.</p>
       </div>
     </div>
   );

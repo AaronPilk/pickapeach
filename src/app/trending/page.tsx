@@ -17,7 +17,7 @@ export default function TrendingPage() {
       <JsonLd data={breadcrumbs([{ name: "Creators", path: "/" }, { name: "Trending", path: "/trending" }])} />
       <div className="wrap">
         <header className="page-head">
-          <h1>Trending now</h1>
+          <h1 className="t-large">Trending now</h1>
           <p className="lede">The profiles getting the most attention this week.</p>
         </header>
         <Directory cards={list.map(toCard)} regions={allRegions()} initialSort="trending" list="trending" />

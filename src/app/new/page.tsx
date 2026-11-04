@@ -17,7 +17,7 @@ export default function NewPage() {
       <JsonLd data={breadcrumbs([{ name: "Creators", path: "/" }, { name: "New", path: "/new" }])} />
       <div className="wrap">
         <header className="page-head">
-          <h1>New this week</h1>
+          <h1 className="t-large">New this week</h1>
           <p className="lede">Fresh faces, newest first. Get in early.</p>
         </header>
         <Directory cards={list.map(toCard)} regions={allRegions()} initialSort="new" list="new" />

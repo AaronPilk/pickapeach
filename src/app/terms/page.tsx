@@ -9,7 +9,7 @@ export default function TermsPage() {
     <>
       <div className="wrap">
         <div className="prose">
-          <h1>Terms of Use</h1>
+          <h1 className="t-large">Terms of Use</h1>
           <p className="faint">Last updated November 4, 2026</p>
           <h2>Who can use this site</h2>
           <p>You must be 18 or older, or the age of majority where you live if that is higher, and it must be legal for you to view adult-oriented material where you are.</p>

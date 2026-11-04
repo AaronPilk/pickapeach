@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Clips, Home, Lock, Peach, Search, Sparkle, Unlock } from "./Icons";
+import { Clips, Home, Lock, Moon, Peach, Search, Sparkle, Sun, Users } from "./Icons";
 import { bootVip, openGate, useVip } from "@/lib/vip";
 import { track } from "@/lib/track";
 
@@ -13,7 +13,6 @@ export function Ambient() {
       <div className="orb orb-1" />
       <div className="orb orb-2" />
       <div className="orb orb-3" />
-      <div className="grain" />
     </div>
   );
 }
@@ -29,12 +28,52 @@ export function Logo() {
   );
 }
 
+const THEME_COLORS = { light: "#fbf7f0", dark: "#070c1d" };
+
+function currentTheme(): "light" | "dark" {
+  const set = document.documentElement.getAttribute("data-theme");
+  if (set === "light" || set === "dark") return set;
+  return matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+export function ThemeToggle({ className = "icon-btn gray" }: { className?: string }) {
+  const [theme, setTheme] = useState<"light" | "dark" | null>(null);
+  useEffect(() => {
+    setTheme(currentTheme());
+    const mq = matchMedia("(prefers-color-scheme: light)");
+    const on = () => !document.documentElement.getAttribute("data-theme") && setTheme(currentTheme());
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  const flip = () => {
+    const next = currentTheme() === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try {
+      localStorage.setItem("pp_theme", next);
+    } catch {}
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", THEME_COLORS[next]));
+    setTheme(next);
+    track("theme", { m: { to: next } });
+  };
+  return (
+    <button className={className} onClick={flip} aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+      {theme === "light" ? <Moon /> : <Sun />}
+    </button>
+  );
+}
+
 const NAV = [
   { href: "/", label: "Discover" },
   { href: "/new", label: "New" },
   { href: "/trending", label: "Trending" },
   { href: "/clips", label: "Clips" },
+  { href: "/blog", label: "Blog" },
 ];
+
+const PAGES = new Set(["/", "/new", "/trending", "/faq", "/about", "/privacy", "/terms", "/apply", "/vip", "/more", "/admin", "/clips", "/blog"]);
+export function isProfilePath(path: string) {
+  return !PAGES.has(path) && !path.startsWith("/browse") && !path.startsWith("/from") && !path.startsWith("/blog") && path.split("/").filter(Boolean).length === 1;
+}
 
 export function Header() {
   const path = usePathname();
@@ -45,7 +84,7 @@ export function Header() {
 
   useEffect(() => {
     bootVip();
-    const on = () => setScrolled(scrollY > 8);
+    const on = () => setScrolled(scrollY > 4);
     on();
     addEventListener("scroll", on, { passive: true });
     return () => removeEventListener("scroll", on);
@@ -63,10 +102,10 @@ export function Header() {
   }, []);
 
   if (path === "/clips" || path.startsWith("/admin")) return null;
-  const isProfile = !PAGES.has(path) && !path.startsWith("/browse") && !path.startsWith("/from") && path.split("/").filter(Boolean).length === 1;
+  const profile = isProfilePath(path) || path === "/more";
 
   return (
-    <header className="header" data-scrolled={scrolled} data-profile={isProfile}>
+    <header className="header" data-scrolled={scrolled} data-profile={profile}>
       <div className="header-surface" />
       <div className="wrap header-bar">
         <Logo />
@@ -79,7 +118,7 @@ export function Header() {
         </nav>
         <div className="header-actions">
           <form
-            className="search glass header-search"
+            className="search header-search"
             role="search"
             onSubmit={(e) => {
               e.preventDefault();
@@ -89,18 +128,20 @@ export function Header() {
             }}
           >
             <Search />
-            <input ref={q} type="search" name="q" placeholder="Search creators" aria-label="Search creators" />
+            <input ref={q} type="search" name="q" placeholder="Search" aria-label="Search creators" />
             <kbd>/</kbd>
           </form>
-          <button
-            className="btn btn-sm btn-glass only-desktop"
-            onClick={() => openGate("header")}
-            style={vip.unlocked ? { color: "var(--coral-300)" } : undefined}
-          >
-            {vip.unlocked ? <Sparkle /> : <Lock />}
-            {vip.unlocked ? "VIP unlocked" : "Unlock VIP"}
-          </button>
-          <Link href="/?focus=search#creators" className="icon-btn btn-glass only-mobile" aria-label="Search">
+          <ThemeToggle />
+          {vip.unlocked ? (
+            <Link href="/vip" className="btn btn-sm btn-tinted only-desktop">
+              <Sparkle /> Members
+            </Link>
+          ) : (
+            <button className="btn btn-sm btn-primary only-desktop" onClick={() => openGate("header")}>
+              <Lock /> See everyone
+            </button>
+          )}
+          <Link href="/?focus=search#creators" className="icon-btn gray only-mobile" aria-label="Search">
             <Search />
           </Link>
         </div>
@@ -109,35 +150,32 @@ export function Header() {
   );
 }
 
-const PAGES = new Set(["/", "/new", "/trending", "/faq", "/about", "/privacy", "/terms", "/apply", "/vip"]);
-
 export function Dock() {
   const path = usePathname();
   const vip = useVip();
   const [hidden, setHidden] = useState(false);
-  const isProfile = !PAGES.has(path) && !path.startsWith("/browse") && !path.startsWith("/from") && path.split("/").filter(Boolean).length === 1;
 
   useEffect(() => {
     let last = scrollY;
     const on = () => {
       const y = scrollY;
-      if (Math.abs(y - last) < 6) return;
-      setHidden(y > last && y > 240);
+      if (Math.abs(y - last) < 8) return;
+      setHidden(y > last && y > 300);
       last = y;
     };
     addEventListener("scroll", on, { passive: true });
     return () => removeEventListener("scroll", on);
   }, []);
 
-  if (path === "/clips" || path.startsWith("/admin") || isProfile) return null;
+  if (path === "/clips" || path.startsWith("/admin") || path === "/more" || isProfilePath(path)) return null;
 
   return (
-    <nav className="dock glass-thick" data-hidden={hidden} aria-label="Quick">
+    <nav className="dock glass-thick" data-hidden={hidden} aria-label="Tabs">
       <Link href="/" aria-current={path === "/" ? "page" : undefined}>
         <Home />
         Discover
       </Link>
-      <Link href="/clips" aria-current={path === "/clips" ? "page" : undefined}>
+      <Link href="/clips">
         <Clips />
         Clips
       </Link>
@@ -145,10 +183,17 @@ export function Dock() {
         <Sparkle />
         New
       </Link>
-      <button className="dock-vip" data-unlocked={vip.unlocked} onClick={() => openGate("dock")}>
-        {vip.unlocked ? <Unlock /> : <Lock />}
-        VIP
-      </button>
+      {vip.unlocked ? (
+        <Link href="/vip" aria-current={path === "/vip" ? "page" : undefined}>
+          <Users />
+          Members
+        </Link>
+      ) : (
+        <button onClick={() => openGate("dock")}>
+          <Lock />
+          Unlock
+        </button>
+      )}
     </nav>
   );
 }

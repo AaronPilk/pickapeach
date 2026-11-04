@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { CardData } from "@/lib/creators";
+import { toCard, type CardData } from "@/lib/card";
 import CreatorCard, { LockedCard } from "./CreatorCard";
 import Sheet from "./Sheet";
 import { Search, Sliders, Sparkle, Flame, Grid as GridIcon } from "./Icons";
@@ -12,9 +12,8 @@ type Sort = "featured" | "new" | "trending";
 type Filters = { hair: string[]; eyes: string[]; tags: string[]; region: string[]; age: string[]; free: boolean };
 const EMPTY: Filters = { hair: [], eyes: [], tags: [], region: [], age: [], free: false };
 const AGE = [
-  { id: "18-21", min: 18, max: 21 },
-  { id: "22-25", min: 22, max: 25 },
-  { id: "26-30", min: 26, max: 30 },
+  { id: "18-24", min: 18, max: 24 },
+  { id: "25-29", min: 25, max: 29 },
   { id: "30+", min: 30, max: 99 },
 ];
 
@@ -26,6 +25,7 @@ export default function Directory({
   showSearch = true,
   list = "home",
   lockedAt = 5,
+  includeLocked = true,
 }: {
   cards: CardData[];
   regions: { region: string; label: string }[];
@@ -34,12 +34,14 @@ export default function Directory({
   showSearch?: boolean;
   list?: string;
   lockedAt?: number;
+  includeLocked?: boolean;
 }) {
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>(initialSort);
   const [f, setF] = useState<Filters>(EMPTY);
   const [draft, setDraft] = useState<Filters>(EMPTY);
   const [open, setOpen] = useState(false);
+  const [draftSort, setDraftSort] = useState<Sort>(initialSort);
   const [quick, setQuick] = useState("all");
   const vip = useVip();
   const input = useRef<HTMLInputElement>(null);
@@ -86,9 +88,12 @@ export default function Directory({
     return { hair: count((c) => c.hair), eyes: count((c) => c.eyes), tags: count((c) => c.tags).slice(0, 18) };
   }, [cards]);
 
+  const lockedCards = useMemo(() => (vip.unlocked && includeLocked ? (vip.content?.creators || []).map((c) => toCard({ ...c, locked: true })) : []), [vip.unlocked, vip.content, includeLocked]);
+  const all = useMemo(() => (lockedCards.length ? [...cards, ...lockedCards] : cards), [cards, lockedCards]);
+
   const results = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    let out = cards.filter((c) => {
+    let out = all.filter((c) => {
       if (f.free && !c.free) return false;
       if (f.hair.length && !f.hair.includes(c.hair || "")) return false;
       if (f.eyes.length && !f.eyes.includes(c.eyes || "")) return false;
@@ -110,7 +115,7 @@ export default function Directory({
       out = out.slice().sort((a, b) => score(b) - score(a));
     }
     return out;
-  }, [cards, f, q, sort]);
+  }, [all, f, q, sort]);
 
   const activeCount = f.hair.length + f.eyes.length + f.tags.length + f.region.length + f.age.length + (f.free ? 1 : 0);
 
@@ -140,13 +145,13 @@ export default function Directory({
     } else if (id.startsWith("tag:")) setF({ ...EMPTY, tags: [id.slice(4)] });
   };
 
-  const lockedCount = vip.summary?.lockedCreators ?? 0;
-  const vipCreators = vip.unlocked ? vip.content?.creators || [] : [];
+  const lockedCount = vip.summary?.count ?? 0;
+  const art = cards[(lockedAt + 3) % Math.max(cards.length, 1)]?.cover;
 
   return (
     <div id="creators">
       {showSearch && (
-        <div className="search glass" style={{ marginTop: 4 }}>
+        <div className="search" style={{ marginTop: 6 }}>
           <Search />
           <input
             ref={input}
@@ -160,9 +165,10 @@ export default function Directory({
           {showToolbar && (
             <button
               className="icon-btn"
-              style={{ width: 38, height: 38, position: "relative" }}
+              style={{ position: "relative" }}
               onClick={() => {
                 setDraft(f);
+                setDraftSort(sort);
                 setOpen(true);
                 track("filters_open", { m: { l: list } });
               }}
@@ -197,41 +203,18 @@ export default function Directory({
 
       <div className="grid grid-wide">
         {results.map((c, i) => (
-          <FragmentWithLock key={c.slug} i={i} lockedAt={lockedAt} unlocked={vip.unlocked} count={lockedCount}>
+          <FragmentWithLock key={c.slug} i={i} lockedAt={lockedAt} unlocked={vip.unlocked || !includeLocked} count={lockedCount} art={art}>
             <CreatorCard c={c} index={i} list={list} eager={i < 2} />
           </FragmentWithLock>
         ))}
-        {vipCreators.map((v, i) => (
-          <a
-            key={v.slug}
-            href={`/go/${v.slug}?s=vip_card&from=${encodeURIComponent(list)}`}
-            target="_blank"
-            rel="nofollow noopener sponsored"
-            className="card unlocked-in"
-            data-track="follow_click"
-            data-creator={v.slug}
-            data-m-s="vip_card"
-            style={{ animationDelay: `${i * 60}ms` }}
-          >
-            <div className="card-media">
-              {v.photo ? <img src={v.photo} alt={v.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} loading="lazy" /> : <div style={{ height: "100%", background: "linear-gradient(160deg, var(--coral-500), var(--navy-800))" }} />}
-              <span className="card-badge badge-free" style={{ display: "inline-flex", gap: 4 }}><Sparkle style={{ width: 10, height: 10 }} /> VIP</span>
-              <div className="card-scrim" />
-              <div className="card-info">
-                <div className="card-name">{v.name}{v.age ? <span className="age">{v.age}</span> : null}</div>
-                <div className="card-tag">{v.tagline}</div>
-              </div>
-            </div>
-          </a>
-        ))}
-        {results.length > 0 && results.length <= lockedAt && !vip.unlocked && <LockedCard index={results.length} count={lockedCount} />}
+        {includeLocked && results.length > 0 && results.length <= lockedAt && !vip.unlocked && lockedCount > 0 && <LockedCard index={results.length} count={lockedCount} art={art} />}
       </div>
 
       {results.length === 0 && (
-        <div className="panel pane" style={{ textAlign: "center", marginTop: 8 }}>
-          <h3>No one matches that yet</h3>
+        <div className="panel cell" style={{ textAlign: "center", marginTop: 8 }}>
+          <h3 className="t-headline">No one matches that yet</h3>
           <p className="muted" style={{ marginTop: 6 }}>Try fewer filters or a different search.</p>
-          <button className="btn btn-sm btn-glass" style={{ marginTop: 14 }} onClick={() => { setF(EMPTY); setQ(""); setQuick("all"); }}>
+          <button className="btn btn-sm btn-tinted" style={{ marginTop: 14 }} onClick={() => { setF(EMPTY); setQ(""); setQuick("all"); }}>
             Clear everything
           </button>
         </div>
@@ -245,26 +228,37 @@ export default function Directory({
           label="Filters"
           footer={
             <>
-              <button className="btn btn-glass" onClick={() => setDraft(EMPTY)}>Reset</button>
+              <button className="btn btn-gray" onClick={() => { setDraft(EMPTY); setDraftSort(initialSort); }}>Reset</button>
               <button
-                className="btn btn-coral"
+                className="btn btn-primary"
                 style={{ flex: 1 }}
                 onClick={() => {
                   setF(draft);
+                  setSort(draftSort);
                   setQuick("");
                   setOpen(false);
                   track("filter_apply", { m: { hair: draft.hair.join("|"), tags: draft.tags.join("|"), region: draft.region.join("|"), age: draft.age.join("|"), free: draft.free, l: list } });
                 }}
               >
-                Show {countFor(cards, draft)} creators
+                Show {countFor(all, draft)} creators
               </button>
             </>
           }
         >
+          <div className="filter-group">
+            <h3>Sort by</h3>
+            <div className="filter-opts">
+              {([["featured", "For you"], ["new", "Newest"], ["trending", "Hot right now"]] as [Sort, string][]).map(([v, l]) => (
+                <button key={v} className="chip" aria-pressed={draftSort === v} onClick={() => setDraftSort(v)}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="filter-group toggle-row">
             <div>
-              <h3 style={{ margin: 0 }}>Free to follow</h3>
-              <p className="faint" style={{ fontSize: "0.82rem", marginTop: 2 }}>Only show free pages</p>
+              <div className="t-headline">Free pages only</div>
+              <p className="t-foot c2" style={{ marginTop: 2 }}>Hide subscription pages</p>
             </div>
             <button className="switch" role="switch" aria-checked={draft.free} aria-label="Free only" onClick={() => setDraft({ ...draft, free: !draft.free })} />
           </div>
@@ -286,10 +280,10 @@ export default function Directory({
   );
 }
 
-function FragmentWithLock({ i, lockedAt, unlocked, count, children }: { i: number; lockedAt: number; unlocked: boolean; count: number; children: React.ReactNode }) {
+function FragmentWithLock({ i, lockedAt, unlocked, count, art, children }: { i: number; lockedAt: number; unlocked: boolean; count: number; art?: string; children: React.ReactNode }) {
   return (
     <>
-      {i === lockedAt && !unlocked && <LockedCard index={i} count={count} />}
+      {i === lockedAt && !unlocked && count > 0 && <LockedCard index={i} count={count} art={art} />}
       {children}
     </>
   );
@@ -297,7 +291,7 @@ function FragmentWithLock({ i, lockedAt, unlocked, count, children }: { i: numbe
 
 function FilterDot({ n }: { n: number }) {
   return (
-    <span style={{ position: "absolute", top: 2, right: 2, minWidth: 16, height: 16, borderRadius: 99, background: "var(--coral-500)", color: "#2a0d08", fontSize: 10, fontWeight: 800, display: "grid", placeItems: "center", padding: "0 4px" }}>
+    <span style={{ position: "absolute", top: 2, right: 2, minWidth: 16, height: 16, borderRadius: 99, background: "var(--tint)", color: "var(--on-tint)", fontSize: 10, fontWeight: 700, display: "grid", placeItems: "center", padding: "0 4px" }}>
       {n}
     </span>
   );
@@ -332,7 +326,7 @@ function Segmented({ value, onChange }: { value: Sort; onChange: (s: Sort) => vo
     if (btn) setThumb({ x: btn.offsetLeft, w: btn.offsetWidth });
   }, [value]);
   return (
-    <div className="seg pane" ref={wrap} role="group" aria-label="Sort">
+    <div className="seg" ref={wrap} role="group" aria-label="Sort">
       <span className="seg-thumb" style={{ transform: `translateX(${thumb.x}px)`, width: thumb.w }} aria-hidden />
       {opts.map(([v, l]) => (
         <button key={v} data-v={v} aria-pressed={value === v} onClick={() => onChange(v)}>

@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 
 const creators = JSON.parse(readFileSync(new URL("../data/creators.json", import.meta.url), "utf8"));
-const RESERVED = new Set(["clips", "browse", "from", "new", "trending", "faq", "about", "privacy", "terms", "admin", "vip", "apply", "api", "go", "media", "llms", "sitemap", "robots"]);
+const RESERVED = new Set(["clips", "browse", "from", "new", "trending", "faq", "about", "privacy", "terms", "admin", "vip", "apply", "api", "go", "media", "llms", "sitemap", "robots", "more", "members", "blog"]);
 const errors = [];
 const slugs = new Set();
 

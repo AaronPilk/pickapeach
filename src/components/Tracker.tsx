@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { initTracking, track } from "@/lib/track";
-import { site } from "@/lib/site";
+import { site } from "@/lib/config";
 
 // Page views, engaged time + scroll depth per page, outbound/social clicks via data attributes.
 export default function Tracker() {

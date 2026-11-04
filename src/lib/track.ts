@@ -5,7 +5,7 @@
 // Visitor + session ids also live in cookies so server routes (/go, /api/lead)
 // can tie clicks and leads back to the traffic source.
 
-import { site } from "./site";
+import { site } from "./config";
 
 type Meta = Record<string, string | number | boolean | null | undefined>;
 type Ev = { t: string; ts: number; p: string; c?: string; m?: Meta };

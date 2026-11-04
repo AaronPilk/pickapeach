@@ -1,5 +1,5 @@
 import { creators } from "./site";
-import type { Creator, Socials } from "./types";
+import type { Creator } from "./types";
 
 export { creators };
 
@@ -67,51 +67,5 @@ export function related(c: Creator, n = 8) {
     .map((x) => x.o);
 }
 
-export const socialMeta: Record<keyof Socials, { label: string; url: (h: string) => string }> = {
-  instagram: { label: "Instagram", url: (h) => `https://instagram.com/${h}` },
-  tiktok: { label: "TikTok", url: (h) => `https://www.tiktok.com/@${h}` },
-  x: { label: "X", url: (h) => `https://x.com/${h}` },
-  snapchat: { label: "Snapchat", url: (h) => `https://www.snapchat.com/add/${h}` },
-  reddit: { label: "Reddit", url: (h) => `https://www.reddit.com/${h.startsWith("u/") ? h : `user/${h}`}` },
-  threads: { label: "Threads", url: (h) => `https://www.threads.net/@${h}` },
-  youtube: { label: "YouTube", url: (h) => `https://www.youtube.com/@${h}` },
-  telegram: { label: "Telegram", url: (h) => `https://t.me/${h}` },
-};
-
-export function socialLinks(c: Creator) {
-  return (Object.keys(socialMeta) as (keyof Socials)[])
-    .filter((k) => c.socials[k])
-    .map((k) => {
-      const v = c.socials[k]!;
-      return { key: k, label: socialMeta[k].label, url: /^https?:/.test(v) ? v : socialMeta[k].url(v) };
-    });
-}
-
-// Light payload for client-side grids (keeps the JS bundle small).
-export type CardData = Pick<Creator, "slug" | "name" | "tagline" | "age" | "location" | "region" | "height" | "hair" | "eyes" | "tags" | "free" | "badge" | "addedAt" | "featured"> & {
-  photos: { src: string; w: number; h: number }[];
-  clipCount: number;
-  cover: string;
-};
-
-export function toCard(c: Creator): CardData {
-  return {
-    slug: c.slug,
-    name: c.name,
-    tagline: c.tagline,
-    age: c.age,
-    location: c.location,
-    region: c.region,
-    height: c.height,
-    hair: c.hair,
-    eyes: c.eyes,
-    tags: c.tags,
-    free: c.free,
-    badge: c.badge,
-    addedAt: c.addedAt,
-    featured: c.featured,
-    photos: c.photos.slice(0, 4).map(({ src, w, h }) => ({ src, w, h })),
-    clipCount: c.clips.length,
-    cover: c.photos[0]?.src || "",
-  };
-}
+export { socialMeta, socialLinks } from "./social";
+export { toCard, type CardData } from "./card";

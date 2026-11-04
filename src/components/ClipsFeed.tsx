@@ -81,11 +81,11 @@ export default function ClipsFeed({ items }: { items: FeedItem[] }) {
   return (
     <>
       <div className="feed-top">
-        <Link href="/" className="icon-btn btn-glass" aria-label="Back to creators">
+        <Link href="/" className="icon-btn" aria-label="Back to creators">
           <ChevronLeft />
         </Link>
-        <span className="btn btn-sm btn-glass" style={{ pointerEvents: "none" }}>Clips</span>
-        <button className="icon-btn btn-glass" onClick={() => { setMuted(!muted); track(muted ? "unmute" : "mute"); }} aria-label={muted ? "Turn sound on" : "Mute"}>
+        <span className="feed-title">Clips</span>
+        <button className="icon-btn" onClick={() => { setMuted(!muted); track(muted ? "unmute" : "mute"); }} aria-label={muted ? "Turn sound on" : "Mute"}>
           {muted ? <Muted /> : <Sound />}
         </button>
       </div>
@@ -168,11 +168,11 @@ function Slide({ it, idx, near, muted, liked, onLike }: { it: FeedItem; idx: num
         <Link href={`/${it.slug}`} className="av" aria-label={`${it.name}'s profile`}>
           <img src={it.avatar} alt="" />
         </Link>
-        <button className={`icon-btn btn-glass ${liked ? "liked" : ""}`} onClick={onLike} aria-label="Like" aria-pressed={liked}>
+        <button className={`icon-btn ${liked ? "liked" : ""}`} onClick={onLike} aria-label="Like" aria-pressed={liked}>
           <Heart />
         </button>
         <button
-          className="icon-btn btn-glass"
+          className="icon-btn"
           aria-label="Share"
           onClick={async () => {
             const url = `${location.origin}/${it.slug}`;

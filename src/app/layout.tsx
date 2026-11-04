@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Ambient, Dock, Header, Reveal } from "@/components/Chrome";
+import { THEME_SCRIPT } from "@/lib/theme";
 import Tracker from "@/components/Tracker";
 import AgeGate from "@/components/AgeGate";
 import UnlockSheet from "@/components/UnlockSheet";
@@ -30,14 +31,18 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: site.themeColor,
-  colorScheme: "dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fbf7f0" },
+    { media: "(prefers-color-scheme: dark)", color: "#070c1d" },
+  ],
+  colorScheme: "dark light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <JsonLd data={siteGraph()} />
         {site.gaId && (
           <>

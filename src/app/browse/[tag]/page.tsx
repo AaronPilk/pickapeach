@@ -35,14 +35,14 @@ export default async function TagPage({ params }: { params: Promise<{ tag: strin
       <div className="wrap">
         <header className="page-head">
           <nav className="crumbs" aria-label="Breadcrumb"><Link href="/">Creators</Link> <span>/</span> <span>{name}</span></nav>
-          <h1>{name} creators</h1>
+          <h1 className="t-large">{name} creators</h1>
           <p className="lede">
             {list.length} {name.toLowerCase()} {list.length === 1 ? "creator" : "creators"} we think you&apos;ll like. Every profile has photos, clips and a direct link to her page.
           </p>
         </header>
         <Directory cards={list.map(toCard)} regions={allRegions()} list={`tag:${tag}`} showToolbar={false} showSearch={false} lockedAt={4} />
         <section className="section">
-          <div className="section-head"><h2>More vibes</h2></div>
+          <div className="section-head"><h2 className="t-title2">More vibes</h2></div>
           <div className="filter-opts">
             {others.map((t) => <Link key={t.slug} href={`/browse/${t.slug}`} className="chip">{cap(t.tag)} <span className="count">{t.count}</span></Link>)}
           </div>

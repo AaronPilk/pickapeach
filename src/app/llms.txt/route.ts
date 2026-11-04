@@ -1,6 +1,7 @@
 import { allRegions, allTags, creators } from "@/lib/creators";
 import { absUrl, site } from "@/lib/site";
 import { FAQS } from "@/lib/seo";
+import { posts } from "@/lib/blog";
 
 export const dynamic = "force-static";
 
@@ -20,6 +21,12 @@ export function GET() {
     `- [Clips](${absUrl("/clips")}): vertical feed of short clips`,
     `- [FAQ](${absUrl("/faq")}): how following, VIP and privacy work`,
     `- [Get listed](${absUrl("/apply")}): creator applications`,
+    "",
+    "## Guides",
+    ...posts.filter((p) => p.kind === "guide").map((p) => `- [${p.title}](${absUrl(`/blog/${p.slug}`)}): ${p.tldr}`),
+    "",
+    "## Top picks",
+    ...posts.filter((p) => p.kind === "picks").map((p) => `- [${p.title}](${absUrl(`/blog/${p.slug}`)})`),
     "",
     "## Creators",
     ...creators.map((c) => `- [${c.name}](${absUrl(`/${c.slug}`)}): ${c.tagline}${c.location ? ` (${c.location})` : ""}${c.free ? ", free page" : ""}`),

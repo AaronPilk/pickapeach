@@ -29,6 +29,7 @@ export function Footer() {
               <li><Link href="/new">New creators</Link></li>
               <li><Link href="/trending">Trending</Link></li>
               <li><Link href="/clips">Clips</Link></li>
+              <li><Link href="/blog">Blog</Link></li>
               {tags.slice(0, 5).map((t) => (
                 <li key={t.slug}><Link href={`/browse/${t.slug}`}>{cap(t.tag)}</Link></li>
               ))}

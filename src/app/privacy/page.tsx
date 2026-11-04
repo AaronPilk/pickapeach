@@ -9,7 +9,7 @@ export default function PrivacyPage() {
     <>
       <div className="wrap">
         <div className="prose">
-          <h1>Privacy Policy</h1>
+          <h1 className="t-large">Privacy Policy</h1>
           <p className="faint">Last updated November 4, 2026</p>
           <p>This policy explains what {site.name} (&quot;we&quot;) collects when you use this site and what we do with it.</p>
           <h2>What we collect</h2>

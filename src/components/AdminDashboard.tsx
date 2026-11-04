@@ -107,7 +107,7 @@ export default function AdminDashboard() {
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
           <div className="seg pane">
             {RANGES.map((d) => (
-              <button key={d} aria-pressed={days === d} onClick={() => setDays(d)} style={days === d ? { background: "var(--cream-100)", color: "var(--navy-900)" } : undefined}>
+              <button key={d} aria-pressed={days === d} onClick={() => setDays(d)} style={days === d ? { background: "var(--label)", color: "var(--bg)" } : undefined}>
                 {d === 1 ? "Today" : `${d}d`}
               </button>
             ))}
@@ -200,34 +200,34 @@ export default function AdminDashboard() {
         .kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 6px 0 14px; }
         @media (min-width: 900px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
         .kpi { border-radius: 20px; padding: 14px 16px; }
-        .kpi .l { font-size: 0.78rem; color: var(--text-3); }
+        .kpi .l { font-size: 0.78rem; color: var(--label-3); }
         .kpi .v { font-size: 1.7rem; font-weight: 750; letter-spacing: -0.03em; margin-top: 2px; font-variant-numeric: tabular-nums; }
-        .kpi .s { font-size: 0.75rem; color: var(--text-3); margin-top: 2px; }
-        .kpi.accent .v { color: var(--coral-300); }
+        .kpi .s { font-size: 0.75rem; color: var(--label-3); margin-top: 2px; }
+        .kpi.accent .v { color: var(--tint-text); }
         .dcard { border-radius: 24px; padding: 16px; margin-top: 12px; }
         .dcard-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
         .dcard-h h3 { font-size: 1rem; }
-        .dcard-h p { font-size: 0.78rem; color: var(--text-3); }
+        .dcard-h p { font-size: 0.78rem; color: var(--label-3); }
         .two-col { display: grid; gap: 0 12px; }
         @media (min-width: 900px) { .two-col { grid-template-columns: 1fr 1fr; } }
         .tbl { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
         .tbl-wrap { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
-        .tbl th { text-align: left; font-weight: 600; color: var(--text-3); font-size: 0.75rem; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-        .tbl td { padding: 9px 10px; border-bottom: 1px solid rgba(255,250,241,0.06); white-space: nowrap; color: var(--text-2); }
-        .tbl td:first-child { color: var(--text); font-weight: 600; }
-        .tbl tr:hover td { background: rgba(255,250,241,0.03); }
+        .tbl th { text-align: left; font-weight: 600; color: var(--label-3); font-size: 0.75rem; padding: 8px 10px; border-bottom: 1px solid var(--sep); white-space: nowrap; }
+        .tbl td { padding: 9px 10px; border-bottom: 1px solid var(--sep); white-space: nowrap; color: var(--label-2); }
+        .tbl td:first-child { color: var(--label); font-weight: 600; }
+        .tbl tr:hover td { background: var(--fill); }
         .barlist { display: grid; gap: 6px; }
         .barlist div { position: relative; display: flex; justify-content: space-between; padding: 7px 10px; font-size: 0.85rem; border-radius: 8px; overflow: hidden; }
-        .barlist div i { position: absolute; inset: 0 auto 0 0; background: rgba(255,107,87,0.22); border-radius: 0 4px 4px 0; }
+        .barlist div i { position: absolute; inset: 0 auto 0 0; background: var(--tint-soft); border-radius: 0 4px 4px 0; }
         .barlist span { position: relative; }
         .barlist b { position: relative; font-variant-numeric: tabular-nums; }
-        .daily { position: relative; display: flex; align-items: flex-end; gap: 2px; height: 180px; padding-top: 10px; border-bottom: 1px solid var(--line); }
+        .daily { position: relative; display: flex; align-items: flex-end; gap: 2px; height: 180px; padding-top: 10px; border-bottom: 1px solid var(--sep); }
         .daily button { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
-        .daily button i { display: block; width: 100%; background: var(--coral-500); border-radius: 4px 4px 0 0; min-height: 2px; transition: opacity 120ms ease; }
+        .daily button i { display: block; width: 100%; background: var(--tint); border-radius: 4px 4px 0 0; min-height: 2px; transition: opacity 120ms ease; }
         .daily:hover button i { opacity: 0.55; }
         .daily button:hover i, .daily button:focus-visible i { opacity: 1; }
         .daily-tip { position: absolute; top: -6px; transform: translate(-50%, -100%); padding: 8px 10px; border-radius: 12px; font-size: 0.78rem; white-space: nowrap; pointer-events: none; z-index: 2; }
-        .daily-axis { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-3); margin-top: 6px; }
+        .daily-axis { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--label-3); margin-top: 6px; }
       `}</style>
     </div>
   );

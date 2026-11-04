@@ -31,12 +31,12 @@ export default async function RegionPage({ params }: { params: Promise<{ region:
       <div className="wrap">
         <header className="page-head">
           <nav className="crumbs" aria-label="Breadcrumb"><Link href="/">Creators</Link> <span>/</span> <span>{place}</span></nav>
-          <h1>Creators from {place}</h1>
+          <h1 className="t-large">Creators from {place}</h1>
           <p className="lede">{list.length} {list.length === 1 ? "creator" : "creators"} who call {place} home.</p>
         </header>
         <Directory cards={list.map(toCard)} regions={allRegions()} list={`region:${region}`} showToolbar={false} showSearch={false} lockedAt={4} />
         <section className="section">
-          <div className="section-head"><h2>Other places</h2></div>
+          <div className="section-head"><h2 className="t-title2">Other places</h2></div>
           <div className="filter-opts">
             {others.map((r) => <Link key={r.region} href={`/from/${r.region}`} className="chip">{r.label} <span className="count">{r.count}</span></Link>)}
           </div>

@@ -16,7 +16,7 @@ export default function AboutPage() {
       <JsonLd data={breadcrumbs([{ name: "Home", path: "/" }, { name: "About", path: "/about" }])} />
       <div className="wrap">
         <div className="prose">
-          <h1>About Pick a Peach</h1>
+          <h1 className="t-large">About Pick a Peach</h1>
           <p className="lede">A short list of creators worth following, picked by people, not an algorithm.</p>
           <h2>What this is</h2>
           <p>

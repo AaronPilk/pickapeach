@@ -4,8 +4,8 @@
 //   POST /api/t              batched tracking events  -> Supabase ingest()
 //   GET  /go/:slug           tracked outbound click to the creator's fans page
 //   POST /api/lead           VIP unlock + creator applications -> Supabase submit_lead()
-//   GET  /api/vip            unlocked VIP content (cookie-gated)
-//   GET  /api/vip/summary    public counts of locked content
+//   GET  /api/vip            members-only creators (cookie-gated)
+//   GET  /api/vip/summary    public count of members-only creators
 //   /api/admin/*             password-protected dashboard data
 import roster from "../data/creators.json";
 
@@ -32,6 +32,7 @@ export default {
       if (p.startsWith("/go/")) return await handleGo(req, env, ctx, url);
       if (p === "/api/lead" && req.method === "POST") return await handleLead(req, env, ctx);
       if (p === "/api/vip/summary") return await handleSummary(req, env, ctx);
+      if (p === "/api/live") return await handleLive(req, env, ctx);
       if (p === "/api/vip") return await handleVip(req, env);
       if (p.startsWith("/api/admin/")) return await handleAdmin(req, env, url);
       if (p.startsWith("/api/")) return json({ error: "not found" }, 404);
@@ -179,7 +180,8 @@ async function handleLead(req: Request, env: Env, ctx: ExecutionContext) {
 
   if (kind === "creator") return json({ ok: true });
 
-  const vip = await rpc(env, "vip_content", { p_token: res.token });
+  const creators = await rpc(env, "locked_creators", { p_token: res.token });
+  const vip = { creators: creators || [] };
   const headers = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
   headers.append("set-cookie", `pp_vip=${res.token}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`);
   headers.append("set-cookie", `pp_unlocked=1; Path=/; Max-Age=31536000; Secure; SameSite=Lax`);
@@ -189,9 +191,9 @@ async function handleLead(req: Request, env: Env, ctx: ExecutionContext) {
 async function handleVip(req: Request, env: Env) {
   const tok = parseCookies(req).pp_vip;
   if (!tok || !/^[0-9a-f-]{36}$/i.test(tok)) return json({ error: "locked" }, 401);
-  const vip = await rpc(env, "vip_content", { p_token: tok });
-  if (!vip) return json({ error: "locked" }, 401);
-  return json(vip, 200, { "cache-control": "private, no-store" });
+  const creators = await rpc(env, "locked_creators", { p_token: tok });
+  if (!creators) return json({ error: "locked" }, 401);
+  return json({ creators }, 200, { "cache-control": "private, no-store" });
 }
 
 async function handleSummary(req: Request, env: Env, ctx: ExecutionContext) {
@@ -199,8 +201,20 @@ async function handleSummary(req: Request, env: Env, ctx: ExecutionContext) {
   const key = new Request(new URL("/api/vip/summary", req.url).toString());
   const hit = await cache.match(key);
   if (hit) return hit;
-  const data = await rpc(env, "vip_summary", {});
+  const data = await rpc(env, "locked_summary", {});
   const res = json(data, 200, { "cache-control": "public, max-age=300" });
+  ctx.waitUntil(cache.put(key, res.clone()));
+  return res;
+}
+
+// Real activity numbers for the live bar. Cached at the edge for 30s.
+async function handleLive(req: Request, env: Env, ctx: ExecutionContext) {
+  const cache = caches.default;
+  const key = new Request(new URL("/api/live", req.url).toString());
+  const hit = await cache.match(key);
+  if (hit) return hit;
+  const data = await rpc(env, "live_stats", {});
+  const res = json(data, 200, { "cache-control": "public, max-age=30" });
   ctx.waitUntil(cache.put(key, res.clone()));
   return res;
 }

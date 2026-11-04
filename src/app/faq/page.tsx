@@ -15,19 +15,19 @@ export default function FaqPage() {
       <JsonLd data={breadcrumbs([{ name: "Home", path: "/" }, { name: "FAQ", path: "/faq" }])} />
       <div className="wrap">
         <div className="prose">
-          <h1>Questions, answered</h1>
+          <h1 className="t-large">Questions, answered</h1>
           <p className="lede">The short version: browse free, tap Follow to go to her page, unlock VIP if you want more.</p>
         </div>
-        <div className="faq" style={{ maxWidth: 760 }}>
+        <div className="faq" style={{ maxWidth: 760, marginTop: 12 }}>
           {FAQS.map((f) => (
-            <details key={f.q} className="pane" open>
+            <details key={f.q} open>
               <summary>{f.q}</summary>
               <p>{f.a}</p>
             </details>
           ))}
         </div>
         <p className="muted" style={{ marginTop: 22 }}>
-          Still stuck? <Link href="/about" style={{ color: "var(--coral-300)" }}>Read about us</Link> or email the team.
+          Still stuck? <Link href="/about" style={{ color: "var(--tint-text)" }}>Read about us</Link> or email the team.
         </p>
       </div>
       <Footer />

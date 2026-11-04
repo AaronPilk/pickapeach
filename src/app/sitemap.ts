@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { allRegions, allTags, creators } from "@/lib/creators";
 import { absUrl } from "@/lib/site";
+import { posts } from "@/lib/blog";
 
 export const dynamic = "force-static";
 
@@ -28,6 +29,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
     ...allTags().map((t) => page(`/browse/${t.slug}`, 0.6)),
     ...allRegions().map((r) => page(`/from/${r.region}`, 0.6)),
+    page("/blog", 0.7, "weekly"),
+    ...posts.map((p) => ({ url: absUrl(`/blog/${p.slug}`), lastModified: p.updated, changeFrequency: (p.kind === "picks" ? "weekly" : "monthly") as "weekly" | "monthly", priority: p.kind === "guide" ? 0.7 : 0.6 })),
     page("/faq", 0.5, "monthly"),
     page("/about", 0.4, "monthly"),
     page("/apply", 0.4, "monthly"),

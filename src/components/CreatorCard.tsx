@@ -2,20 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import type { CardData } from "@/lib/creators";
+import { profileHref, type CardData } from "@/lib/card";
 import { track } from "@/lib/track";
 import { Lock, Play, Sparkle } from "./Icons";
-import { openGate, useVip } from "@/lib/vip";
+import { openGate } from "@/lib/vip";
 
 export default function CreatorCard({ c, index = 0, list = "grid", eager = false }: { c: CardData; index?: number; list?: string; eager?: boolean }) {
   const ref = useRef<HTMLElement>(null);
   const strip = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const swiped = useRef(false);
-  const vip = useVip();
-  const vipCount = vip.summary?.perCreator?.[c.slug];
 
-  // Impression: at least half the card visible for 800ms, once per page view.
+  // Impression: at least half the card on screen for 800ms, once per page view.
   useEffect(() => {
     const el = ref.current;
     if (!el || !("IntersectionObserver" in window)) return;
@@ -24,7 +22,7 @@ export default function CreatorCard({ c, index = 0, list = "grid", eager = false
       ([e]) => {
         if (e.isIntersecting) {
           t = setTimeout(() => {
-            track("impression", { c: c.slug, m: { l: list, i: index } });
+            track("impression", { c: c.slug, m: { l: list, i: index, locked: !!c.locked } });
             io.disconnect();
           }, 800);
         } else if (t) {
@@ -39,7 +37,7 @@ export default function CreatorCard({ c, index = 0, list = "grid", eager = false
       io.disconnect();
       if (t) clearTimeout(t);
     };
-  }, [c.slug, list, index]);
+  }, [c.slug, c.locked, list, index]);
 
   const onScroll = () => {
     const s = strip.current;
@@ -54,14 +52,14 @@ export default function CreatorCard({ c, index = 0, list = "grid", eager = false
     }
   };
 
-  const meta = [c.age ? `${c.age}` : "", c.location?.split(",")[0] || "", c.hair || ""].filter(Boolean);
+  const sub = [c.location?.split(",")[0], c.hair].filter(Boolean).join(" · ") || c.tagline;
 
   return (
     <article ref={ref} className="card reveal" style={{ ["--i" as string]: index % 8 }}>
       <div className="card-media">
         <div className="card-strip" ref={strip} onScroll={onScroll}>
           {c.photos.map((p, i) => (
-            <div className="card-photo" key={p.src}>
+            <div className="card-photo" key={`${p.src}-${i}`}>
               <img
                 src={p.src}
                 alt={i === 0 ? `${c.name}, ${c.tagline}` : ""}
@@ -78,20 +76,18 @@ export default function CreatorCard({ c, index = 0, list = "grid", eager = false
         {c.photos.length > 1 && (
           <div className="card-dots" aria-hidden>
             {c.photos.map((p, i) => (
-              <i key={p.src} data-on={i === active} />
+              <i key={`${p.src}-${i}`} data-on={i === active} />
             ))}
           </div>
         )}
-        {c.free ? (
-          <span className="card-badge badge-free">Free</span>
-        ) : c.badge === "new" ? (
-          <span className="card-badge badge-new">New</span>
-        ) : c.badge ? (
-          <span className="card-badge badge-glass">{c.badge === "hot" ? "Hot" : "Trending"}</span>
-        ) : null}
-        <div className="card-scrim" />
+        {c.free && <span className="card-flag">Free</span>}
+        {c.clipCount > 0 && (
+          <span className="card-flag" style={c.free ? undefined : { left: 8 }}>
+            <Play /> {c.clipCount}
+          </span>
+        )}
         <Link
-          href={`/${c.slug}`}
+          href={profileHref(c)}
           className="card-link"
           aria-label={`View ${c.name}'s profile`}
           data-track="card_click"
@@ -99,39 +95,36 @@ export default function CreatorCard({ c, index = 0, list = "grid", eager = false
           data-m-l={list}
           data-m-i={String(index)}
         />
-        <div className="card-info">
-          <div className="card-name">
-            {c.name}
-            {c.age ? <span className="age">{c.age}</span> : null}
-            {vip.unlocked && vipCount ? <Sparkle style={{ width: 14, height: 14, color: "var(--coral-400)" }} aria-label="VIP content" /> : null}
-          </div>
-          <div className="card-tag">{c.tagline}</div>
-          <div className="card-meta">
-            {c.clipCount > 0 && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                <Play style={{ width: 9, height: 9 }} /> {c.clipCount}
-              </span>
-            )}
-            {meta.slice(1).map((m) => (
-              <span key={m}>{m}</span>
-            ))}
-          </div>
+      </div>
+      <div className="card-body">
+        <div className="card-title">
+          {c.name}
+          {c.age ? <span className="age">{c.age}</span> : null}
+          {c.locked ? <Sparkle aria-label="Members only" /> : null}
         </div>
+        <div className="card-sub">{sub}</div>
       </div>
     </article>
   );
 }
 
-export function LockedCard({ index = 0, count }: { index?: number; count: number }) {
+// Same footprint as a creator card, so it sits naturally in the grid.
+export function LockedCard({ index = 0, count, art }: { index?: number; count: number; art?: string }) {
   return (
-    <button className="card-lock reveal" style={{ ["--i" as string]: index % 8 }} onClick={() => openGate("grid_card")} aria-label="Unlock VIP creators">
-      <div>
-        <div className="lock-ico">
-          <Lock />
+    <button className="card card-lock reveal" style={{ ["--i" as string]: index % 8 }} onClick={() => openGate("grid_card")} aria-label="Unlock members-only creators">
+      <div className="card-media">
+        <div className="blur-art" style={{ backgroundImage: `url(${art || "/media/ui/vip-blur-1.svg"})` }} />
+        <div className="lock-badge">
+          <span className="ico">
+            <Lock />
+          </span>
+          <b>{count > 0 ? `+${count}` : "More"}</b>
+          <span>{count > 0 ? "members-only girls" : "girls for members"}</span>
         </div>
-        <h3>{count > 0 ? `+${count} VIP creators` : "VIP drops"}</h3>
-        <p>{count > 0 ? "Members-only girls and extra sets. Free with email + phone." : "Extra photos and clips from every girl. Free to unlock."}</p>
-        <span className="btn btn-sm btn-coral lock-cta">Unlock free</span>
+      </div>
+      <div className="card-body">
+        <div className="card-title ct">Unlock free</div>
+        <div className="card-sub">Email + phone, takes 10 seconds</div>
       </div>
     </button>
   );

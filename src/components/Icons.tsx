@@ -47,6 +47,10 @@ export const Grid = (p: P) => (<svg {...base} {...p}><rect x="4" y="4" width="7"
 export const Flame = (p: P) => (<svg {...base} {...p}><path d="M12 21c-3.6 0-6.5-2.6-6.5-6.2 0-3.4 2.6-5.3 3.6-8.3.4 1.8 1.4 2.9 2.4 3.4 0-2.8 1.3-5.6 3.4-7.4.1 3.5 3.6 5.6 3.6 10.6 0 4.6-3 7.9-6.5 7.9z" /></svg>);
 export const Bolt = (p: P) => (<svg {...base} {...p}><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z" /></svg>);
 
+export const Sun = (p: P) => (<svg {...base} {...p}><circle cx="12" cy="12" r="4.2" /><path d="M12 2.8v2M12 19.2v2M4.6 4.6 6 6M18 18l1.4 1.4M2.8 12h2M19.2 12h2M4.6 19.4 6 18M18 6l1.4-1.4" /></svg>);
+export const Moon = (p: P) => (<svg {...base} {...p}><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>);
+export const Users = (p: P) => (<svg {...base} {...p}><circle cx="9" cy="8.5" r="3.5" /><path d="M2.8 19.5c.7-3.3 3.2-5 6.2-5s5.5 1.7 6.2 5" /><path d="M15.5 5.2a3.4 3.4 0 0 1 0 6.6M18 14.8c1.7.6 2.9 2.2 3.3 4.7" /></svg>);
+
 // Neutral platform badges: a monogram tile + the platform's name as text.
 const mono: Record<string, string> = { instagram: "IG", tiktok: "TT", x: "X", snapchat: "SC", reddit: "R", threads: "TH", youtube: "YT", telegram: "TG" };
 export function SocialMark({ k }: { k: string }) {

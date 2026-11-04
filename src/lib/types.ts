@@ -48,6 +48,7 @@ export type Creator = {
   photos: Photo[];
   clips: Clip[];
   placeholder?: boolean;
+  locked?: boolean;
 };
 
 export type VipItem = {
@@ -70,11 +71,10 @@ export type VipCreator = {
 };
 
 export type VipContent = {
-  items: Record<string, VipItem[]>;
-  creators: VipCreator[];
+  creators: Creator[];
 };
 
 export type VipSummary = {
-  perCreator: Record<string, { photos: number; clips: number }>;
-  lockedCreators: number;
+  count: number;
+  free: number;
 };

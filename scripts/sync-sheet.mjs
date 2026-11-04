@@ -6,7 +6,10 @@
 //
 // Sheet columns (header row, any order, case-insensitive). Only name + fans_url are required.
 //   name | slug | handle | tagline | bio | age | location | height | hair | eyes | tags
-//   fans_url | free | badge | featured | added | active
+//   fans_url | free | badge | featured | added | active | tier
+// tier: "agency" (default, shown to everyone) or "locked" (members-only, unlocked with email + phone).
+// Locked girls never go in the public repo: they're pushed to Supabase. That needs the dashboard
+// password:  ADMIN_PASSWORD=... SHEET_CSV_URL=... npm run sync:sheet
 //   instagram | tiktok | x | snapchat | reddit | threads | youtube | telegram
 //   photos | clips | clip_posters
 // Lists (tags, photos, clips, clip_posters) can be separated by commas, pipes or new lines.
@@ -35,7 +38,7 @@ const alias = {
 };
 const cols = header.map((h) => alias[h] || h);
 
-const RESERVED = new Set(["clips", "browse", "from", "new", "trending", "faq", "about", "privacy", "terms", "admin", "vip", "apply", "api", "go", "media", "llms", "sitemap", "robots"]);
+const RESERVED = new Set(["clips", "browse", "from", "new", "trending", "faq", "about", "privacy", "terms", "admin", "vip", "apply", "api", "go", "media", "llms", "sitemap", "robots", "more", "members", "blog"]);
 const STATES = {
   AL: "alabama", AK: "alaska", AZ: "arizona", AR: "arkansas", CA: "california", CO: "colorado", CT: "connecticut", DE: "delaware",
   FL: "florida", GA: "georgia", HI: "hawaii", ID: "idaho", IL: "illinois", IN: "indiana", IA: "iowa", KS: "kansas", KY: "kentucky",
@@ -49,6 +52,7 @@ const STATES = {
 const today = new Date().toISOString().slice(0, 10);
 const seen = new Set();
 const creators = [];
+const locked = [];
 
 rows.slice(1).forEach((r, i) => {
   const row = Object.fromEntries(cols.map((c, j) => [c, (r[j] ?? "").trim()]));
@@ -64,8 +68,9 @@ rows.slice(1).forEach((r, i) => {
   const posters = list(row.clip_posters).map(driveFix);
   const clips = list(row.clips).map((u, k) => ({ src: driveFix(u), poster: posters[k] || photos[k % Math.max(photos.length, 1)]?.src || "", w: 720, h: 1280, duration: 0 }));
 
-  creators.push({
-    slug,
+  const isLocked = /^(locked|members?|gated|vip|other|non-?agency)$/i.test(row.tier || "") || /^(yes|y|true|1)$/i.test(row.locked || "");
+  (isLocked ? locked : creators).push({
+    slug: isLocked && !slug.startsWith("m-") ? `m-${slug}` : slug,
     name: row.name,
     handle: clean(row.handle) || undefined,
     tagline: row.tagline || "",
@@ -93,7 +98,27 @@ rows.slice(1).forEach((r, i) => {
 });
 
 writeFileSync(join(root, "data/creators.json"), JSON.stringify(creators, null, 2) + "\n");
-console.log(`synced ${creators.length} creators from the sheet`);
+console.log(`synced ${creators.length} agency creators from the sheet`);
+
+if (locked.length) {
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password) {
+    writeFileSync(join(root, "data/locked.local.json"), JSON.stringify(locked, null, 2));
+    console.log(`${locked.length} members-only girls saved to data/locked.local.json (not committed). Re-run with ADMIN_PASSWORD set to push them live.`);
+  } else {
+    const base = process.env.SUPABASE_URL || "https://qcuzrmceswanetrmimzn.supabase.co";
+    const key = process.env.SUPABASE_KEY || "sb_publishable_zG7RWc6SzzTIVBRMPXSJ0w_K0tLxwfD";
+    const call = async (fn, body) => {
+      const r = await fetch(`${base}/rest/v1/rpc/${fn}`, { method: "POST", headers: { apikey: key, "content-type": "application/json" }, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error(`${fn}: ${r.status} ${await r.text()}`);
+      return r.json();
+    };
+    const token = await call("admin_login", { p_password: password });
+    if (!token) throw new Error("Wrong dashboard password.");
+    const n = await call("admin_upsert_locked", { p_token: token, p_rows: locked, p_replace: true });
+    console.log(`pushed ${n} members-only girls to Supabase (live within 5 minutes, no redeploy needed)`);
+  }
+}
 
 function list(v) { return (v || "").split(/[\n|,]+/).map((s) => s.trim()).filter(Boolean); }
 function slugify(s) { return s.toLowerCase().replace(/^@/, "").normalize("NFKD").replace(/[^\w\s-]/g, "").replace(/[\s_.]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, ""); }
