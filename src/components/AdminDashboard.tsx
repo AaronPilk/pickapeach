@@ -5,19 +5,21 @@ import Approvals from "./Approvals";
 import Requests from "./Requests";
 import Account from "./Account";
 import Traffic, { type TrafficData } from "./admin/Traffic";
+import Heatmaps from "./admin/Heatmaps";
 import { Bars, ChannelTag, Empty, Glass, Seg, Stat, Trend } from "./admin/parts";
 import { CHANNELS, EVENTS, fmt, fmtPct, greeting, pct } from "./admin/meta";
 import {
-  IBell, ICheck, IDownload, IEye, IFlag, IHome, IInbox, IPulse, IRefresh, IShield, IStar, ITap, ITraffic, IUnlock, IUser, IUsers,
+  IBell, ICheck, IDownload, IEye, IFlag, IFlame, IHome, IInbox, IPulse, IRefresh, IShield, IStar, ITap, ITraffic, IUnlock, IUser, IUsers,
 } from "./admin/icons";
 
 type Row = Record<string, string | number | boolean | null>;
 type Stats = { creators: Row[]; countries: Row[]; devices: Row[]; totals: Record<string, number | null> };
-type Tab = "overview" | "traffic" | "creators" | "leads" | "approvals" | "requests" | "live" | "account";
+type Tab = "overview" | "traffic" | "heatmaps" | "creators" | "leads" | "approvals" | "requests" | "live" | "account";
 
 const MAIN: [Tab, string, (p: React.SVGProps<SVGSVGElement>) => React.ReactElement][] = [
   ["overview", "Overview", IHome],
   ["traffic", "Traffic", ITraffic],
+  ["heatmaps", "Heatmaps", IFlame],
   ["creators", "Creators", IStar],
   ["leads", "Leads", IInbox],
 ];
@@ -196,6 +198,7 @@ export default function AdminDashboard() {
             <p>
               {tab === "overview" && "Here's how Pick a Peach is doing. Bots are already filtered out."}
               {tab === "traffic" && "Every visitor, labeled by where they came from."}
+              {tab === "heatmaps" && "Where people tap on each page, what they tap most, and how far down they get."}
               {tab === "creators" && "Which creators get looked at and clicked."}
               {tab === "leads" && "People who unlocked the hidden girls."}
               {tab === "approvals" && "Creator profiles waiting for a yes or no."}
@@ -204,7 +207,7 @@ export default function AdminDashboard() {
               {tab === "account" && "Your login and your team."}
             </p>
           </div>
-          {["overview", "traffic", "creators"].includes(tab) && (
+          {["overview", "traffic", "heatmaps", "creators"].includes(tab) && (
             <div className="dash-head-r">
               <Seg label="Date range" value={days} options={RANGES} onChange={setDays} />
             </div>
@@ -225,7 +228,7 @@ export default function AdminDashboard() {
               <Stat vs={vs} label="Follow clicks" value={T.clicks || 0} prev={P.clicks} icon={<ITap />} tint="linear-gradient(135deg,#fda4af,#e11d48)" help="Taps that sent someone to a creator's page." />
               <Stat vs={vs} label="Click rate" value={pct(T.clicking_sessions || 0, sessions)} suffix="%" prev={pct(P.clicking_sessions || 0, P.sessions || 0)} icon={<ITraffic />} tint="linear-gradient(135deg,#fcd34d,#f59e0b)" help="Share of visits that tapped Follow at least once." />
               <Stat vs={vs} label="Unlocks" value={T.leads || 0} prev={P.leads} icon={<IUnlock />} tint="linear-gradient(135deg,#c4b5fd,#7c3aed)" help="Emails and numbers collected from the unlock screen." />
-              <Stat vs={vs} label="Bots blocked" value={T.bots || 0} prev={P.bots} invert icon={<IShield />} tint="linear-gradient(135deg,#86efac,#16a34a)" help="Fake visits caught and kept out of every number here." />
+              <Stat vs={vs} label="Bots blocked" value={T.bots || 0} prev={P.bots} invert icon={<IShield />} tint="linear-gradient(135deg,#86efac,#16a34a)" help="Fake visits, plus your own team's visits, kept out of every number here." />
             </div>
 
             <Glass title="Visitors, follow clicks and unlocks" note="Per day. Hover or tap the chart for exact numbers.">
@@ -276,6 +279,7 @@ export default function AdminDashboard() {
         )}
 
         {tab === "traffic" && traffic && <Traffic data={traffic} initialChannel={channel} key={`t${days}`} />}
+        {tab === "heatmaps" && <Heatmaps days={days} />}
 
         {tab === "creators" && (
           <Glass title="Creators" note="Card views = her card was on screen for a moment. Follow clicks = taps through to her page.">

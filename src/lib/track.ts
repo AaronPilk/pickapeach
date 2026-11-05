@@ -163,8 +163,11 @@ function clearStored() {
   } catch {}
 }
 
+// The dashboard shows pages inside a frame for heatmaps. Nothing is tracked there.
+export const inPreview = () => typeof window !== "undefined" && window.top !== window.self;
+
 export function initTracking() {
-  if (started || typeof window === "undefined") return;
+  if (started || typeof window === "undefined" || inPreview()) return;
   started = true;
   memTouch = readAttribution().touch;
   ensureRegion();
@@ -200,7 +203,7 @@ export function initTracking() {
 }
 
 export function track(type: string, data: { c?: string; m?: Meta } = {}) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || inPreview()) return;
   initTracking();
   sessionId(); // keeps the session sliding
   queue.push({ t: type, ts: Date.now(), p: location.pathname, ...(data.c ? { c: data.c } : {}), ...(data.m ? { m: data.m } : {}) });

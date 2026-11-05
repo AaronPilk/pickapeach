@@ -22,3 +22,4 @@ export const IBell = (p: P) => <svg {...b} {...p}><path d="M6 16V11a6 6 0 0 1 12
 export const IArrowUp = (p: P) => <svg {...b} strokeWidth={2.2} {...p}><path d="M7 17 17 7M9 7h8v8" /></svg>;
 export const IArrowDown = (p: P) => <svg {...b} strokeWidth={2.2} {...p}><path d="M7 7l10 10M17 9v8H9" /></svg>;
 export const IInfo = (p: P) => <svg {...b} {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></svg>;
+export const IFlame = (p: P) => <svg {...b} {...p}><path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-2.7 1.6-4.6 3.2-6.3.3 1.6 1 2.7 2.1 3.3C10.6 8.2 12 5.4 14.6 3c.2 3.1 1.7 4.9 2.9 6.6 1 1.4 1.5 3 1.5 4.8 0 3.9-2.9 6.6-7 6.6z" /><path d="M12 21c-1.7 0-2.8-1.2-2.8-2.8 0-1.7 1.3-2.7 2.8-4.2 1.5 1.5 2.8 2.5 2.8 4.2 0 1.6-1.1 2.8-2.8 2.8z" /></svg>;

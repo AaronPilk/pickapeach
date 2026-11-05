@@ -166,7 +166,7 @@ async function handleTrack(req: Request, env: Env, ctx: ExecutionContext) {
     v,
     e: events.map(cleanEvent),
     att: body.ctx ? attribution(body.ctx as Json, req.headers.get("user-agent") || "") : undefined,
-    enr: await enrich(req, env, body.ctx as Json | undefined),
+    enr: teamVisit(req, await enrich(req, env, body.ctx as Json | undefined)),
   };
   ctx.waitUntil(rpc(env, "ingest", { p: payload }, clientIp(req), req.headers.get("user-agent")).catch((e) => console.error("ingest", e)));
   return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
@@ -199,7 +199,16 @@ async function handleGo(req: Request, env: Env, ctx: ExecutionContext, url: URL)
   const v = cookies.pp_vid || (anonSid && !cookies.pp_sid ? "anon" : crypto.randomUUID());
   const isNewSession = !cookies.pp_sid && !anonSid;
   const event = { t: "go", ts: Date.now(), p: str(url.searchParams.get("from"), 300) || "/go", c: slug, m: { s: str(url.searchParams.get("s"), 30) || "link" } };
-  const payload: Json = { s, v, e: [event], enr: await enrich(req, env) };
+  const enr = teamVisit(req, await enrich(req, env));
+  // A Follow click from someone who never opened the site: no visit on record, not sent from one of our pages,
+  // no ad tags and no other site linking here. That's a scraper walking the links in our HTML, not a person.
+  const refHost = hostOf(req.headers.get("referer"));
+  const adTagged = [...url.searchParams.keys()].some((k) => /^utm_|clid$|^gad_|^sccid$/i.test(k));
+  if (isNewSession && !refHost && !adTagged && !enr.is_bot) {
+    enr.is_bot = true;
+    enr.bot_reason = "link scraper";
+  }
+  const payload: Json = { s, v, e: [event], enr };
   // Someone landing on /go directly from an ad still gets attributed.
   if (isNewSession) payload.att = attribution({ lt: { q: Object.fromEntries(url.searchParams), ref: req.headers.get("referer") || "", ref_host: hostOf(req.headers.get("referer")), land: url.pathname } }, req.headers.get("user-agent") || "");
   ctx.waitUntil(rpc(env, "ingest", { p: payload }, clientIp(req), req.headers.get("user-agent")).catch((e) => console.error("go", e)));
@@ -240,7 +249,7 @@ async function handleLead(req: Request, env: Env, ctx: ExecutionContext) {
   if (kind === "creator" && !name) return json({ error: "Add your name." }, 422);
 
   const cookies = parseCookies(req);
-  const enr = await enrich(req, env);
+  const enr = teamVisit(req, await enrich(req, env));
   const att = b.attr ? attribution(b.attr as Json, req.headers.get("user-agent") || "") : ({} as Partial<ReturnType<typeof attribution>>);
   const extra: Json = {};
   if (kind === "creator") {
@@ -389,6 +398,9 @@ async function handleLive(req: Request, env: Env, ctx: ExecutionContext) {
 
 // ---------------------------------------------------------------- admin
 
+// Set on any device where an owner signs in. Visits from that device are kept out of the numbers.
+const TEAM_COOKIE = "pp_team=1; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax";
+
 async function handleAdmin(req: Request, env: Env, url: URL) {
   const p = url.pathname.replace("/api/admin/", "");
   if (p === "login" && req.method === "POST") {
@@ -398,7 +410,10 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
     // Each owner has their own email + password login (private.admin_users).
     const tok = (await rpc(env, "owner_login", { p_email: email, p_password: typeof b.password === "string" ? b.password.slice(0, 200) : "" }, clientIp(req))) as string | null;
     if (!tok) return json({ error: "Wrong email or password, or too many tries. Wait 15 minutes." }, 401);
-    return json({ ok: true }, 200, { "set-cookie": `pp_admin=${tok}; Path=/api/admin; Max-Age=1209600; HttpOnly; Secure; SameSite=Strict` });
+    const h = new Headers({ "content-type": "application/json" });
+    h.append("set-cookie", `pp_admin=${tok}; Path=/api/admin; Max-Age=1209600; HttpOnly; Secure; SameSite=Strict`);
+    h.append("set-cookie", TEAM_COOKIE);
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: h });
   }
   if (p === "logout") return json({ ok: true }, 200, { "set-cookie": "pp_admin=; Path=/api/admin; Max-Age=0; HttpOnly; Secure; SameSite=Strict" });
 
@@ -408,7 +423,8 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
 
   if (p === "me") {
     const data = await rpc(env, "owner_me", { p_token: tok });
-    return data ? json(data, 200, nostore) : json({ error: "auth" }, 401);
+    // Mark this phone/computer as the team's, so owners checking the site don't count as visitors.
+    return data ? json(data, 200, { ...nostore, "set-cookie": TEAM_COOKIE }) : json({ error: "auth" }, 401);
   }
   if (p === "password" && req.method === "POST") {
     const b = (await req.json().catch(() => ({}))) as Json;
@@ -467,6 +483,13 @@ async function handleAdmin(req: Request, env: Env, url: URL) {
     let media = 0;
     for (const acc of res.creator_accounts || []) media += await purgeMedia(env, acc);
     return json({ ok: true, ...res, media_deleted: media }, 200, nostore);
+  }
+  if (p === "heatmap") {
+    const days = Math.max(1, Math.min(90, Number(url.searchParams.get("days")) || 7));
+    const device = ["mobile", "desktop", "tablet"].includes(url.searchParams.get("device") || "") ? url.searchParams.get("device") : "mobile";
+    const path = str(url.searchParams.get("path"), 300) || "/";
+    const data = await rpc(env, "admin_heatmap", { p_token: tok, p_path: path, p_device: device, p_days: days });
+    return data ? json(data, 200, nostore) : json({ error: "auth" }, 401);
   }
   if (p === "traffic") {
     const days = Math.max(1, Math.min(365, Number(url.searchParams.get("days")) || 7));
@@ -818,6 +841,14 @@ function attribution(ctx: Json, ua = "") {
 
 
 // IP hashing happens in the database with a secret salt (see private.ip_hash), not here.
+function teamVisit<T extends { is_bot: boolean; bot_reason?: string }>(req: Request, enr: T): T {
+  if (parseCookies(req).pp_team === "1") {
+    enr.is_bot = true;
+    enr.bot_reason = "team";
+  }
+  return enr;
+}
+
 async function enrich(req: Request, _env: Env, c?: Json) {
   const cf = (req.cf || {}) as Record<string, unknown>;
   const ua = req.headers.get("user-agent") || "";

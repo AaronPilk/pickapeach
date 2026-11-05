@@ -77,6 +77,8 @@ https://www.pickapeach.com/?utm_source=trafficjunky&utm_medium=cpm&utm_campaign=
 
 Any extra query params are kept too, so you can add `sub1`, `zone_id`, etc.
 
+**Cookie consent** is asked in the same box as the 18+ check, so visitors tap once. EU/UK/Swiss visitors get two equal buttons (accept all / necessary only); everyone else accepts on the way in. Cookie settings are always one tap away.
+
 **Plain-English source labels** (`worker/sources.ts`). Every session gets a channel and a label a non-marketer can read: "ChatGPT", "Perplexity", "Google Search", "Google Ads", "Traffic Junky (paid ad)", "Instagram app", "Reddit", "linktr.ee", "Direct / unknown". Channels: Paid ads, AI assistants, Google & search, Social media, Adult sites, Creator pages, Email & texts, Other websites, Direct / unknown. Evidence is checked in order: ad click IDs (gclid, msclkid, ttclid…), then UTM tags, then the referring site, then the in-app browser (Instagram, TikTok, Snapchat…). The adult ad networks (Traffic Junky, ExoClick, JuicyAds, TrafficStars and others) always count as paid. Leads carry the same label, so the CSV shows where each unlock came from.
 
 **Engaged visits.** A visit counts as engaged once the person taps, scrolls or types. Real people almost always do; bots and fake ad clicks usually don't. Watch this number per paid source before raising spend.
@@ -91,6 +93,12 @@ Bots are tagged and kept out of every dashboard number (they're still logged, so
 - **Hidden trap link** (`/api/hp`): invisible to people and screen readers, blocked in robots.txt. Anything that follows it is flagged for the day, its visits are marked as bots and its form submissions are silently dropped.
 - **Form honeypots and timing** on the unlock form, the privacy/takedown form and creator sign-up: a hidden field people never see, and a minimum fill time. Bots get a fake "success" so they don't retry.
 - **Junk details:** throwaway email domains and fake phone numbers (555 exchanges, repeated or sequential digits) are rejected.
+- **Link scrapers:** a Follow click (`/go/...`) from someone with no visit on record, no referrer and no ad tags is a bot walking the links in our HTML, not a person.
+- **Your own team:** signing in to `/admin` marks that phone or computer (`pp_team` cookie), and its visits are kept out of the numbers.
+
+## Heatmaps
+
+The dashboard's Heatmaps tab shows any page in a frame with taps drawn on top (red = most taps), for phones or computers. Next to it: most-tapped buttons (including "not a button" taps on things that do nothing), how far down people scroll, and average time on the page. Taps are recorded as positions plus the name of what was tapped, never anything typed. The site can only be framed by itself (`frame-ancestors 'self'`), and nothing is tracked inside the preview.
 
 Conversion pixels: set `NEXT_PUBLIC_PIXEL_FOLLOW` / `NEXT_PUBLIC_PIXEL_LEAD` (space-separated URLs, `{ts}` `{event}` `{creator}` get replaced) and rebuild. `NEXT_PUBLIC_GA_ID` turns on GA4.
 

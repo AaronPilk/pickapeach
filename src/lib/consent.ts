@@ -7,7 +7,7 @@
 // The region comes from /api/geo (country only), cached for a day in the pp_geo cookie. Until it's known we
 // behave as opt-in, so nothing is stored for an EU visitor on their very first page. Choices live in pp_consent.
 
-export type Consent = { analytics: boolean; ads: boolean; decided: boolean; source: "default" | "banner" | "settings" | "gpc" };
+export type Consent = { analytics: boolean; ads: boolean; decided: boolean; source: "default" | "banner" | "settings" | "gpc" | "gate" };
 export type Rule = "optin" | "optout";
 
 const KEY = "pp_consent";

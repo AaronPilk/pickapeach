@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { type Consent, ensureRegion, getConsent, gpcOn, onConsent, region, setConsent } from "@/lib/consent";
-import { track } from "@/lib/track";
+import { inPreview, track } from "@/lib/track";
 import { Close } from "./Icons";
 
 const BOT = /bot|crawl|spider|slurp|lighthouse|pagespeed|headless|preview/i;
@@ -29,6 +29,7 @@ export default function CookieBanner() {
   const [gpc, setGpc] = useState(false);
 
   useEffect(() => {
+    if (inPreview()) return;
     setMounted(true);
     if (BOT.test(navigator.userAgent)) return;
     setGpc(gpcOn());
@@ -99,18 +100,21 @@ export default function CookieBanner() {
           <button className="btn btn-plain btn-sm cookie-choose" onClick={() => setSettings(true)}>Choose what to allow</button>
         </div>
       ) : (
-        <div className="cookie-pill glass-thick" role="region" aria-label="Cookie notice">
+        <div className="cookie-card glass-thick" role="dialog" aria-label="Cookies">
+          <h2>Cookies</h2>
           <p>
             {gpc ? (
-              <>Your browser&apos;s privacy signal is on, so we&apos;ve turned off ad sharing for you. We still use cookies for analytics. </>
+              <>Your browser&apos;s privacy signal is on, so ad sharing stays off. We use cookies to count visits. </>
             ) : (
-              <>We use cookies for analytics and to measure our ads. </>
+              <>We use cookies to count visits and see which ads bring people here. </>
             )}
-            <button className="link-btn" onClick={() => setSettings(true)}>Your choices</button>
+            <Link href="/cookies">Cookie Policy</Link>
           </p>
-          <button className="icon-btn gray" aria-label="Close" onClick={() => save({ analytics: c?.analytics ?? true, ads: c?.ads ?? !gpc }, gpc ? "gpc" : "banner")}>
-            <Close />
-          </button>
+          <div className="cookie-actions">
+            <button className="btn btn-gray" onClick={() => setSettings(true)}>Your choices</button>
+            <button className="btn btn-primary" onClick={() => save({ analytics: true, ads: !gpc }, "banner")}>Accept</button>
+          </div>
+          <div style={{ height: 8 }} />
         </div>
       ))}
       {sheet && createPortal(sheet, document.body)}

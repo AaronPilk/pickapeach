@@ -514,7 +514,12 @@ a.row:active, button.row:active { background: var(--fill); }
 .gate-card p { margin-top: 6px; color: var(--label-2); font-size: 0.9375rem; }
 .gate-card .btn { margin-top: 10px; }
 .gate-card .btn-primary { margin-top: 20px; }
-.gate-card .fine { margin-top: 10px; font-size: 0.75rem; color: var(--label-3); }
+.gate-card .fine { margin-top: 10px; font-size: 0.75rem; line-height: 1.5; color: var(--label-3); }
+.gate-card .fine .link-btn { font-size: inherit; }
+.gate-choice { margin-top: 20px; }
+.gate-choice .btn:first-child { margin-top: 0; }
+.gate-wait { height: 50px; margin-top: 20px; border-radius: 14px; background: var(--fill); animation: pulse-soft 1.2s ease-in-out infinite; }
+@keyframes pulse-soft { 50% { opacity: 0.45; } }
 .gate[data-leaving="true"] { animation: fade-out 200ms ease forwards; }
 .gate[data-leaving="true"] .gate-card { animation: sink 200ms var(--ease-out) forwards; }
 @keyframes fade-in { from { opacity: 0; } }
@@ -1068,6 +1073,37 @@ button.g-bar:active { transform: scale(0.99); }
 /* Shared components dropped into glass */
 .dash .group-card { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: none; }
 .dash .input { background: rgba(255, 255, 255, 0.08); color: var(--label); }
+
+/* Heatmaps */
+.g-heat-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px; }
+.g-select { position: relative; display: flex; align-items: center; gap: 8px; flex: 1 1 260px; min-width: 0; height: 42px; padding: 0 12px;
+  border-radius: 999px; background: rgba(255, 255, 255, 0.08); border: 1px solid var(--glass-edge); }
+.g-select span { color: var(--label-3); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.g-select select { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; color: var(--label); font: inherit; font-size: 16px; font-weight: 600; appearance: none; cursor: pointer; }
+.g-select select option { color: #111; }
+.g-select::after { content: ""; width: 8px; height: 8px; margin-top: -4px; border-right: 2px solid var(--label-2); border-bottom: 2px solid var(--label-2); transform: rotate(45deg); pointer-events: none; }
+.g-select:focus-within { box-shadow: 0 0 0 3px rgba(255, 122, 92, 0.25); }
+.g-heat { display: grid; gap: 16px; }
+.g-heat > * { min-width: 0; }
+.g-heat-stage { position: relative; }
+.g-heat-outer { position: relative; width: 100%; overflow: hidden; }
+.g-heat-outer.mobile { max-width: 390px; margin: 0 auto; }
+.g-heat-device { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; border-radius: 26px; background: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 30px 60px -30px rgba(0, 0, 0, 0.8); }
+.g-heat-outer.desktop .g-heat-device { border-radius: 14px; }
+.g-heat-device iframe { display: block; border: 0; background: #fff; }
+.g-heat-device canvas { position: absolute; inset: 0; pointer-events: none; }
+.g-heat-loading { position: absolute; right: 22px; top: 22px; margin: 0; padding: 4px 10px; border-radius: 999px; background: rgba(20, 14, 40, 0.85); font-size: 0.75rem; color: var(--label-2); }
+.g-minis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.g-minis div { padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); }
+.g-minis b { display: block; font-size: 1.4rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.g-minis span { color: var(--label-2); font-size: 0.78rem; }
+.g-reach { display: grid; gap: 10px; }
+.g-reach div { display: grid; grid-template-columns: minmax(0, 1fr) 90px 42px; align-items: center; gap: 10px; font-size: 0.88rem; }
+.g-reach i { position: relative; height: 8px; border-radius: 99px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.g-reach em { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; background: linear-gradient(90deg, #ffb199, #ff6f5b); }
+.g-reach b { text-align: right; font-variant-numeric: tabular-nums; }
+@media (min-width: 1100px) { .g-heat { grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr); align-items: start; } }
 
 @keyframes g-in { from { opacity: 0; transform: translateY(10px); } }
 @keyframes g-grow { from { transform: scaleX(0); } }

@@ -59,8 +59,9 @@ export default function CookiesPage() {
 
       <H2 id="choices">How your choices work</H2>
       <ul>
-        <li><b>In the EU, EEA, UK and Switzerland</b>, analytics and advertising cookies stay off until you allow them.</li>
-        <li><b>Everywhere else</b>, they&rsquo;re on by default and you can turn them off any time.</li>
+        <li><b>Everyone is asked on the way in</b>, in the same box that checks you&rsquo;re 18+. You can change your mind any time with Cookie settings.</li>
+        <li><b>In the EU, EEA, UK and Switzerland</b>, analytics and advertising cookies stay off until you allow them, and &ldquo;necessary cookies only&rdquo; is always one tap.</li>
+        <li><b>Everywhere else</b>, entering the site accepts them, and you can turn them off any time.</li>
         <li><b>Global Privacy Control:</b> if your browser sends this signal, we turn off advertising cookies automatically, wherever you are.</li>
         <li>With analytics off, we still count visits anonymously: nothing is saved on your device, and the visit can&rsquo;t be linked to you later.</li>
       </ul>

@@ -18,6 +18,9 @@ export const BOT_REASONS: Record<string, string> = {
   "automated browser": "Automated or headless browsers",
   "datacenter / VPN": "Cloud servers and VPNs (where most ad-fraud bots live)",
   honeypot: "Caught by our hidden bot trap",
+  "link scraper": "Grabbed creator links without ever opening the site",
+  "internal test": "Our own test visits",
+  team: "Your team (owners signed in on that phone or computer)",
   "no browser": "Requests with no browser at all",
   crawler: "Crawlers (from before labels existed)",
 };

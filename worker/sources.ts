@@ -149,6 +149,7 @@ const IN_APP: Rule[] = [
 ];
 
 const OWN_HOSTS = /(^|\.)pickapeach\.com$|(^|\.)pickapeach\.pages\.dev$|^localhost$/;
+export const isOwnHost = (host: string) => Boolean(host) && OWN_HOSTS.test(host);
 
 function match(rules: Rule[], s: string) {
   for (const [re, name] of rules) if (re.test(s)) return name;
@@ -183,6 +184,7 @@ export function classify(q: Record<string, string>, referrer: string, ua: string
   if (q.ScCid || q.sccid) return { channel: "paid", label: "Snapchat Ads (paid ad)", adNetwork: "Snapchat Ads" };
 
   // 2. Campaign tags we (or an AI tool) put on the link.
+  if (tag === "pwa") return { channel: "direct", label: "Home screen app" };
   if (tag) {
     const ai = match(AI_TAGS, tag);
     if (ai) return { channel: "ai", label: ai };
@@ -231,7 +233,7 @@ export function classify(q: Record<string, string>, referrer: string, ua: string
 
 // Cloud and hosting networks. Real people almost never browse from these; scrapers and ad-fraud bots do.
 // (Some VPNs live here too; those visits are counted separately rather than mixed into your numbers.)
-const DATACENTER = /amazon|aws|google cloud|google-cloud|googleusercontent|microsoft corporation|azure|digitalocean|ovh|hetzner|linode|akamai connected|vultr|choopa|contabo|scaleway|oracle|alibaba|tencent|leaseweb|m247|datacamp|hostinger|ionos|godaddy|hostwinds|colocrossing|psychz|quadranet|servers\.com|cogent|zenlayer|g-core|gcore|cdn77|datapacket|tzulo|hivelocity|liquid web|rackspace|softlayer|ibm cloud|equinix|packet host|heficed|frantech|buyvm|ponynet|serverius|worldstream|nforce|netcup|kamatera|upcloud|ramnode|hostroyale|stark industries|aeza|pq hosting|selectel/i;
+const DATACENTER = /amazon|aws|google cloud|google-cloud|googleusercontent|microsoft corporation|azure|digitalocean|ovh|hetzner|linode|akamai connected|vultr|choopa|contabo|scaleway|oracle|alibaba|tencent|leaseweb|m247|datacamp|hostinger|ionos|godaddy|hostwinds|colocrossing|psychz|quadranet|servers\.com|cogent|zenlayer|g-core|gcore|cdn77|datapacket|tzulo|hivelocity|liquid web|rackspace|softlayer|ibm cloud|equinix|packet host|heficed|frantech|buyvm|ponynet|serverius|worldstream|nforce|netcup|kamatera|upcloud|ramnode|hostroyale|stark industries|aeza|pq hosting|selectel|collyer quay|egihosting|google llc|code200|packethub|clouvider|tefincom|cdnext|ipxo|latitude\.sh|maxihost/i;
 
 export const BOT_UA =
   /bot|crawl|spider|slurp|headless|lighthouse|pagespeed|preview|facebookexternalhit|embedly|whatsapp|telegrambot|discordbot|curl|wget|python|axios|node-fetch|go-http|java\/|okhttp|monitor|uptime|scrapy|httpclient|phantomjs|selenium|puppeteer|playwright|chrome-lighthouse|gtmetrix|semrush|ahrefs|mj12|dotbot|petalbot|bytespider|gptbot|claudebot|perplexitybot|ccbot|amazonbot|applebot/i;
@@ -243,6 +245,8 @@ export function botCheck(ua: string, asOrg: string, verifiedBot: boolean, c?: { 
   if (c && c.wd === true) return "automated browser";
   if (c && c.hl === 0) return "automated browser";
   if (c && (c.sw === 0 || c.sh === 0)) return "automated browser";
+  // 800x600 is the default screen of headless browsers; no phone or modern computer reports it.
+  if (c && c.sw === 800 && c.sh === 600) return "automated browser";
   if (asOrg && DATACENTER.test(asOrg)) return "datacenter / VPN";
   return "";
 }
